@@ -18,6 +18,40 @@ menuju tindakan berisiko.
 >
 > Think Before You Trust. Reflect Before You Share.
 
+## Menjalankan Project
+
+Halaman **Latihan Hadang** menggunakan Three.js dan harus dibuka melalui Vite,
+bukan langsung melalui `file://`.
+
+```bash
+npm install
+npm run dev
+```
+
+Buka alamat yang ditampilkan Vite, biasanya `http://localhost:5173`.
+
+Build produksi dapat diperiksa dengan:
+
+```bash
+npm run build
+npm run preview
+```
+
+## Arena Gobak Sodor 3D
+
+Hero halaman Latihan Hadang memakai scene 3D prosedural dari
+`training-3d.js`. Versi dummy ini belum membutuhkan file `.glb` dan mencakup:
+
+- lapangan Gobak Sodor dengan empat garis J.E.D.A.;
+- empat penjaga low-poly: Jeda, Emosi, Data, dan Aksi;
+- token informasi manipulatif yang bergerak menuju tindakan;
+- pendopo, tanaman, dan bendera merah-putih sebagai konteks visual Indonesia;
+- kamera orbit terbatas, kontrol pause/reset, dan pemilihan penjaga dengan klik;
+- penghubung dari setiap penjaga menuju skenario latihan yang relevan.
+
+Scene ini dapat diganti dengan model `.glb` final melalui `GLTFLoader` tanpa
+mengubah alur skenario pada `app.js`.
+
 ## Positioning Proposal
 
 - **AI Context Guard Web** adalah konsep proposal: platform web ringan untuk

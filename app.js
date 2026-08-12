@@ -152,6 +152,21 @@ const scenarioProfiles = {
     unknowns: ["Siapa pembuat video.", "Apakah cuplikan sudah disunting.", "Konteks rekaman asli.", "Legalitas produk investasi."],
     verification: ["Cari video pada kanal resmi tokoh.", "Gunakan pencarian balik frame.", "Periksa izin produk investasi.", "Jangan bertindak hanya dari kemiripan visual."],
   },
+  "audio-impersonation": {
+    neutralOriginal: "NAK, INI MAMA. TOLONG TRANSFER SEKARANG, JANGAN TELEPON DULU!",
+    neutralVersion: "Seseorang dalam rekaman suara meminta kamu mentransfer uang.",
+    claim: "Pembicara mengaku sebagai anggota keluarga dan sedang mengalami keadaan darurat.",
+    evidenceOptions: ["Suara terdengar mirip", "Nomor pengirim memakai foto keluarga", "Telepon nomor keluarga yang tersimpan", "Rekaman menyebut nama panggilan"],
+    preferredEvidence: "Telepon nomor keluarga yang tersimpan",
+    actionOptions: ["Transfer", "Kirim voice note balasan", "Berikan OTP", "Teruskan rekaman"],
+    riskOptions: ["Kehilangan uang", "Identitas suara disalahgunakan", "Akun diambil alih", "Kepanikan menyebar"],
+    saferOptions: ["Telepon nomor tersimpan", "Ajukan pertanyaan rahasia keluarga", "Konfirmasi ke anggota keluarga lain", "Tunda transfer"],
+    aiNotices: [["Voice pattern", "Pola prosodi tidak konsisten"], ["Urgency", "Transfer diminta segera"], ["Identity", "Kemiripan suara bukan bukti identitas"], ["Audio trace", "Jejak kompresi terdeteksi"]],
+    aiLevel: "High",
+    aiScore: 81,
+    unknowns: ["Identitas asli pembicara.", "Apakah suara sintetis atau rekaman asli yang terkompresi.", "Konteks sebelum dan sesudah potongan audio.", "Apakah pola suara kebetulan mirip data referensi."],
+    verification: ["Telepon nomor keluarga yang sudah tersimpan.", "Gunakan pertanyaan yang hanya diketahui keluarga.", "Konfirmasi kepada anggota keluarga lain.", "Jangan transfer berdasarkan kemiripan suara."],
+  },
   "ai-can-be-wrong": {
     neutralOriginal: "PEMBERITAHUAN RESMI: JADWAL LAYANAN BERUBAH.",
     neutralVersion: "Sebuah layanan menginformasikan perubahan jadwal.",
@@ -253,6 +268,21 @@ const detectionProfiles = {
     clues: ["Sinkronisasi wajah perlu diperiksa", "Pola audio tampak tidak konsisten", "Sumber unggahan tidak jelas", "Ada ajakan finansial cepat"],
     reflectiveQuestions: ["Apakah video ini ada di kanal resmi tokoh?", "Apakah ada versi asli dengan konteks lengkap?", "Apakah produk investasi punya izin resmi?"],
   },
+  "audio-impersonation": {
+    mode: "audio",
+    title: "Rekaman suara impersonasi",
+    subtitle: "Simulasi pencocokan pola audio + transkrip",
+    summary: "Model simulasi menemukan tekanan transfer, perubahan prosodi, dan jejak kompresi. Kemiripan pola suara tidak membuktikan identitas pembicara.",
+    confidenceLabel: "Voice manipulation signal",
+    dataset: { name: "Voice Scam Pattern Set", size: "18.420 sampel", matches: "37 cluster serupa" },
+    highlights: [
+      { label: "Prosody shift", detail: "Intonasi berubah tajam pada bagian permintaan transfer.", start: "00:04", end: "00:07" },
+      { label: "Compression trace", detail: "Ada pola kompresi berulang yang dapat berasal dari edit atau aplikasi pesan.", start: "00:08", end: "00:11" },
+      { label: "Urgent instruction", detail: "Frasa 'sekarang' dan 'jangan telepon' membatasi verifikasi.", start: "00:12", end: "00:16" },
+    ],
+    clues: ["Kemiripan suara bukan bukti identitas", "Ada larangan melakukan verifikasi", "Aksi finansial diminta segera", "Konteks rekaman tidak lengkap"],
+    reflectiveQuestions: ["Sudahkah kamu menelepon nomor keluarga yang tersimpan?", "Adakah pertanyaan yang hanya keluarga asli dapat jawab?", "Apa risiko jika model salah membaca audio terkompresi?"],
+  },
   "ai-can-be-wrong": {
     mode: "official",
     title: "Kemungkinan false positive AI",
@@ -276,11 +306,40 @@ function activeDetection() {
   return detectionProfiles[state.scenarioId] || detectionProfiles["family-emergency"];
 }
 
+function analysisProfile() {
+  if (state.inputType === "image") return scenarioProfiles["manipulated-media"];
+  if (state.inputType === "audio") return scenarioProfiles["audio-impersonation"];
+  if (state.inputType === "qr") return scenarioProfiles[state.qrInputMode === "image" ? "qr-payment" : "bank-message"];
+  return activeProfile();
+}
+
+function analysisDetection() {
+  if (state.inputType === "image") return detectionProfiles["manipulated-media"];
+  if (state.inputType === "audio") return detectionProfiles["audio-impersonation"];
+  if (state.inputType === "qr") return detectionProfiles[state.qrInputMode === "image" ? "qr-payment" : "bank-message"];
+  return activeDetection();
+}
+
+function safeHostname(value) {
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return "domain-belum-terbaca";
+  }
+}
+
 const state = {
   route: "verify",
   inputType: "text",
   content: DEFAULT_MESSAGE,
   fileName: "",
+  imageDataUrl: "",
+  audioDataUrl: "",
+  qrImageDataUrl: "",
+  qrInputMode: "link",
+  xaiMode: "bounding",
+  audioXaiMode: "voice",
+  qrXaiMode: "risk",
   inFlow: false,
   stage: 2,
   hadangStep: 0,
@@ -370,6 +429,7 @@ function goToRoute(route) {
 }
 
 function render(options = {}) {
+  window.dispatchEvent(new CustomEvent("hadang:before-render"));
   const previousScroll = window.scrollY;
   const previousPanelScroll = document.querySelector(".game-question-panel")?.scrollTop || 0;
   state.route = routeFromHash();
@@ -379,6 +439,7 @@ function render(options = {}) {
   else if (state.route === "how") app.innerHTML = howPage();
   else if (state.route === "about") app.innerHTML = aboutPage();
   else app.innerHTML = state.inFlow ? verificationFlow() : verifyPage();
+  window.dispatchEvent(new CustomEvent("hadang:rendered", { detail: { route: state.route } }));
   document.body.classList.toggle("game-active", state.route === "verify" && state.inFlow && state.stage === 3);
   requestAnimationFrame(() => {
     if (options.preserveScroll) {
@@ -481,10 +542,31 @@ function inputPane() {
     return `<div class="input-zone"><textarea id="content-input" aria-label="Teks atau pesan mencurigakan" placeholder="Tempel pesan atau klaim di sini...">${escapeHtml(state.content)}</textarea></div>`;
   }
   if (state.inputType === "qr") {
-    return `<div class="input-zone"><div class="upload-content"><div class="upload-symbol" aria-hidden="true">#</div><strong>Masukkan QR atau tautan</strong><p>Tempel alamat tujuan yang ingin dievaluasi. Tautan tidak akan dibuka.</p><textarea id="content-input" aria-label="QR atau tautan mencurigakan" placeholder="https://contoh-tautan.com">${state.content.startsWith("http") ? escapeHtml(state.content) : ""}</textarea></div></div>`;
+    const modeSwitch = `<div class="media-input-modes" role="group" aria-label="Cara memasukkan QR atau tautan"><button type="button" class="${state.qrInputMode === "link" ? "active" : ""}" data-qr-input-mode="link">Tempel Tautan</button><button type="button" class="${state.qrInputMode === "image" ? "active" : ""}" data-qr-input-mode="image">Upload QR</button></div>`;
+    if (state.qrInputMode === "image") {
+      if (state.qrImageDataUrl) {
+        return `${modeSwitch}<div class="image-upload-preview qr-upload-preview" data-drop-zone><div class="uploaded-image-frame"><img src="${state.qrImageDataUrl}" alt="Preview QR ${escapeHtml(state.fileName)}" /></div><div class="uploaded-file-meta"><div><span>QR siap diperiksa</span><strong>${escapeHtml(state.fileName)}</strong><small>AI simulasi akan memetakan struktur QR dan tujuan yang terbaca.</small></div><div class="button-row"><label class="button button-secondary button-small" for="file-input">Ganti QR</label><button class="icon-remove" type="button" data-action="remove-qr" aria-label="Hapus QR" title="Hapus QR">&times;</button></div></div><input class="file-input" id="file-input" type="file" accept="image/*" /></div>`;
+      }
+      return `${modeSwitch}<div class="input-zone" data-drop-zone><div class="upload-content"><div class="upload-symbol" aria-hidden="true">#</div><strong>Upload gambar QR</strong><p>Tarik screenshot atau foto QR ke sini. PNG, JPG, dan WEBP hingga 10 MB.</p><label class="button button-secondary" for="file-input">Pilih Gambar QR</label><input class="file-input" id="file-input" type="file" accept="image/*" /></div></div>`;
+    }
+    return `${modeSwitch}<div class="link-input-zone"><div class="link-input-icon" aria-hidden="true">//</div><div><strong>Alamat tujuan yang ingin diperiksa</strong><p>Tautan tidak akan dibuka. Simulasi hanya membaca struktur alamatnya.</p></div><input id="content-input" type="url" aria-label="Tautan mencurigakan" placeholder="https://contoh-tautan.com/verifikasi" value="${state.content.startsWith("http") ? escapeHtml(state.content) : ""}" /><div class="link-safety-note"><span></span>Pratinjau aman: tanpa membuka situs tujuan</div></div>`;
   }
   const isAudio = state.inputType === "audio";
-  return `<div class="input-zone"><div class="upload-content"><div class="upload-symbol" aria-hidden="true">${isAudio ? "~" : "+"}</div><strong>${state.fileName ? escapeHtml(state.fileName) : `Pilih ${isAudio ? "rekaman audio" : "gambar atau screenshot"}`}</strong><p>${isAudio ? "MP3, WAV, atau M4A hingga 10 MB" : "PNG, JPG, atau WEBP hingga 10 MB"}</p><label class="button button-secondary" for="file-input">Pilih File</label><input class="file-input" id="file-input" type="file" accept="${isAudio ? "audio/*" : "image/*"}" /></div></div>`;
+  if (isAudio && state.audioDataUrl) {
+    return `<div class="audio-upload-preview" data-drop-zone><div class="audio-file-head"><div class="audio-file-icon" aria-hidden="true">~</div><div><span>Rekaman siap diperiksa</span><strong>${escapeHtml(state.fileName)}</strong><small>Putar dan dengarkan konteks sebelum memulai.</small></div><button class="icon-remove" type="button" data-action="remove-audio" aria-label="Hapus audio" title="Hapus audio">&times;</button></div>${waveformBars(42, "input-wave")}<audio controls preload="metadata" src="${state.audioDataUrl}">Browser tidak mendukung pemutar audio.</audio><label class="button button-secondary button-small" for="file-input">Ganti Audio</label><input class="file-input" id="file-input" type="file" accept="audio/*" /></div>`;
+  }
+  if (!isAudio && state.imageDataUrl) {
+    return `<div class="image-upload-preview" data-drop-zone>
+      <div class="uploaded-image-frame"><img src="${state.imageDataUrl}" alt="Preview ${escapeHtml(state.fileName)}" /></div>
+      <div class="uploaded-file-meta"><div><span>Gambar siap diperiksa</span><strong>${escapeHtml(state.fileName)}</strong><small>Gambar akan tetap terlihat sampai tahap Explainable AI.</small></div><div class="button-row"><label class="button button-secondary button-small" for="file-input">Ganti Gambar</label><button class="icon-remove" type="button" data-action="remove-image" aria-label="Hapus gambar" title="Hapus gambar">&times;</button></div></div>
+      <input class="file-input" id="file-input" type="file" accept="image/*" />
+    </div>`;
+  }
+  return `<div class="input-zone" data-drop-zone><div class="upload-content"><div class="upload-symbol" aria-hidden="true">${isAudio ? "~" : "+"}</div><strong>${state.fileName ? escapeHtml(state.fileName) : `Pilih ${isAudio ? "rekaman audio" : "gambar atau screenshot"}`}</strong><p>${isAudio ? "Tarik MP3, WAV, atau M4A hingga 10 MB" : "Tarik gambar ke sini atau pilih PNG, JPG, dan WEBP hingga 10 MB"}</p><label class="button button-secondary" for="file-input">Pilih File</label><input class="file-input" id="file-input" type="file" accept="${isAudio ? "audio/*" : "image/*"}" /></div></div>`;
+}
+
+function waveformBars(count = 48, className = "") {
+  return `<div class="audio-waveform ${className}" aria-hidden="true">${Array.from({ length: count }, (_, index) => `<i style="--amp:${22 + ((index * 37 + index * index * 3) % 70)}%"></i>`).join("")}</div>`;
 }
 
 function progress() {
@@ -514,7 +596,7 @@ function humanFirst() {
   const decisions = ["Lanjut", "Verifikasi Dulu", "Berhenti", "Belum Yakin"];
   return `<div class="flow-card">
     <header><p class="section-kicker">Human First</p><h2>Sebelum AI Membantu...</h2><p>Kami ingin tahu bagaimana kamu membaca situasi ini terlebih dahulu.</p></header>
-    <div class="message-panel"><span class="label">Informasi yang diperiksa</span><blockquote>${escapeHtml(state.content || DEFAULT_MESSAGE)}</blockquote></div>
+    ${inspectionContext()}
     <div class="question">
       <span class="question-label">Apa respons pertamamu jika ini terjadi di dunia nyata?</span>
       <div class="choice-grid">${decisions.map((item) => choice(item, state.initialDecision, "initial-decision")).join("")}</div>
@@ -526,6 +608,22 @@ function humanFirst() {
     </div>
     <div class="flow-actions"><button class="button button-ghost" data-action="cancel-flow">Kembali</button><button class="button" data-action="lock-initial" ${state.initialDecision ? "" : "disabled"}>Kunci Penilaian Awal</button></div>
   </div>`;
+}
+
+function inspectionContext() {
+  if (state.inputType === "image" && state.imageDataUrl) {
+    return `<div class="human-image-context"><img src="${state.imageDataUrl}" alt="Gambar yang sedang diperiksa" /><div><span class="label">Gambar yang diperiksa</span><strong>${escapeHtml(state.fileName)}</strong><p>Amati konteks, sumber, detail visual, dan tindakan yang diminta sebelum melihat analisis AI.</p></div></div>`;
+  }
+  if (state.inputType === "audio" && state.audioDataUrl) {
+    return `<div class="human-audio-context"><div><span class="label">Rekaman yang diperiksa</span><strong>${escapeHtml(state.fileName)}</strong>${waveformBars(38, "human-wave")}<audio controls preload="metadata" src="${state.audioDataUrl}"></audio></div><div class="transcript-preview"><span>Transkrip simulasi</span><p>"Nak, ini Mama. Nomor Mama sedang bermasalah. Tolong transfer sekarang dan jangan telepon dulu."</p><small>Transkrip ini adalah contoh frontend, bukan hasil speech-to-text aktual.</small></div></div>`;
+  }
+  if (state.inputType === "qr" && state.qrInputMode === "image" && state.qrImageDataUrl) {
+    return `<div class="human-image-context"><img src="${state.qrImageDataUrl}" alt="QR yang sedang diperiksa" /><div><span class="label">QR yang diperiksa</span><strong>${escapeHtml(state.fileName)}</strong><p>Periksa lokasi QR, pemilik media, serta nama penerima sebelum memindai atau membayar.</p></div></div>`;
+  }
+  if (state.inputType === "qr") {
+    return `<div class="human-link-context"><span class="label">Tautan yang diperiksa</span><strong>${escapeHtml(safeHostname(state.content))}</strong><code>${escapeHtml(state.content)}</code><p>Jangan buka tautan dari panel ini. Nilai klaim pengirim dan cari kanal resmi secara mandiri.</p></div>`;
+  }
+  return `<div class="message-panel"><span class="label">Informasi yang diperiksa</span><blockquote>${escapeHtml(state.content || DEFAULT_MESSAGE)}</blockquote></div>`;
 }
 
 function confidenceSlider(id, value) {
@@ -644,24 +742,36 @@ function hadangActions(label, enabled) {
 
 function detectionPanel(profile, detection) {
   const previewText = state.content || DEFAULT_MESSAGE;
+  const isUploadedImage = state.inputType === "image" && state.imageDataUrl;
+  const isUploadedAudio = state.inputType === "audio" && state.audioDataUrl;
+  const isQrAnalysis = state.inputType === "qr";
+  const dataset = detection.dataset || (isQrAnalysis
+    ? { name: state.qrInputMode === "image" ? "QR Abuse Reference Set" : "URL Threat Pattern Set", size: state.qrInputMode === "image" ? "42.680 struktur QR" : "1,2 juta snapshot URL", matches: state.qrInputMode === "image" ? "19 pola tujuan serupa" : "63 pola domain serupa" }
+    : null);
+  let previewContent = `${detectionPreviewContent(detection, previewText)}${detection.highlights.map((item, index) => `<span class="red-box" style="--x:${item.x}%; --y:${item.y}%; --w:${item.w}%; --h:${item.h}%"><b>${index + 1}</b></span>`).join("")}`;
+  if (isUploadedImage) previewContent = `<div class="xai-image-stage"><img class="xai-source-image" src="${state.imageDataUrl}" alt="Gambar upload dengan penjelasan XAI" />${state.xaiMode === "heatmap" ? `<div class="xai-heatmap" aria-hidden="true">${detection.highlights.map((item) => `<span style="--hx:${item.x + item.w / 2}%; --hy:${item.y + item.h / 2}%; --hs:${Math.max(item.w, item.h) * 1.7}%"></span>`).join("")}</div>` : detection.highlights.map((item, index) => `<span class="red-box" style="--x:${item.x}%; --y:${item.y}%; --w:${item.w}%; --h:${item.h}%"><b>${index + 1}</b></span>`).join("")}</div>`;
+  if (isUploadedAudio) previewContent = audioAnalysisPreview();
+  if (isQrAnalysis) previewContent = qrAnalysisPreview();
   return `<section class="detection-panel" aria-label="Explainable AI detection simulation">
     <div class="detection-header">
       <div><p class="section-kicker">Explainable detection</p><h3>${escapeHtml(detection.title)}</h3><p>${escapeHtml(detection.subtitle)}</p></div>
       <div class="confidence-badge"><span>${escapeHtml(detection.confidenceLabel)}</span><strong>${profile.aiScore}%</strong></div>
     </div>
+    ${analysisModeBar(isUploadedImage, isUploadedAudio, isQrAnalysis)}
     <div class="detection-grid">
       <div class="detection-preview ${escapeHtml(detection.mode)}">
         <div class="preview-toolbar"><span></span><span></span><span></span><strong>AI Context Scan</strong></div>
-        <div class="preview-canvas">
-          ${detectionPreviewContent(detection, previewText)}
-          ${detection.highlights.map((item, index) => `<span class="red-box" style="--x:${item.x}%; --y:${item.y}%; --w:${item.w}%; --h:${item.h}%"><b>${index + 1}</b></span>`).join("")}
+        <div class="preview-canvas ${isUploadedImage ? `uploaded-xai ${state.xaiMode}` : ""} ${isUploadedAudio ? `audio-xai ${state.audioXaiMode}` : ""} ${isQrAnalysis ? `qr-xai ${state.qrXaiMode}` : ""}">
+          ${previewContent}
+          ${isUploadedImage ? `<div class="xai-legend"><span><i></i>${state.xaiMode === "heatmap" ? "Pengaruh tinggi" : "Area perhatian model"}</span><small>Simulasi XAI</small></div>` : ""}
         </div>
         <p class="preview-disclaimer">Simulasi frontend: highlight menunjukkan cara hasil AI dapat dijelaskan, bukan bukti final.</p>
       </div>
       <div class="detection-explain">
         <p class="detection-summary">${escapeHtml(detection.summary)}</p>
+        ${dataset ? `<div class="dataset-card"><span>Dataset referensi simulasi</span><strong>${escapeHtml(dataset.name)}</strong><div><small>${escapeHtml(dataset.size)}</small><small>${escapeHtml(dataset.matches)}</small></div><p>Statistik dibuat untuk demonstrasi UI dan bukan hasil model produksi.</p></div>` : ""}
         <div class="highlight-list">
-          ${detection.highlights.map((item, index) => `<article><span>${index + 1}</span><div><h4>${escapeHtml(item.label)}</h4><p>${escapeHtml(item.detail)}</p></div></article>`).join("")}
+          ${detection.highlights.map((item, index) => `<article><span>${index + 1}</span><div><h4>${escapeHtml(item.label)}${item.start ? `<small>${escapeHtml(item.start)}-${escapeHtml(item.end)}</small>` : ""}</h4><p>${escapeHtml(item.detail)}</p></div></article>`).join("")}
         </div>
       </div>
     </div>
@@ -670,6 +780,30 @@ function detectionPanel(profile, detection) {
       <section class="info-panel question-panel"><h3>Pertanyaan reflektif</h3><ul>${detection.reflectiveQuestions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>
     </div>
   </section>`;
+}
+
+function analysisModeBar(isImage, isAudio, isQr) {
+  if (isImage) return `<div class="xai-mode-bar"><div><strong>Visual Penjelasan XAI</strong><span>Pilih cara model menampilkan area yang memengaruhi sinyal.</span></div><div class="xai-segmented" role="group" aria-label="Mode visual XAI"><button class="${state.xaiMode === "bounding" ? "active" : ""}" type="button" data-xai-mode="bounding">Bounding Box</button><button class="${state.xaiMode === "heatmap" ? "active" : ""}" type="button" data-xai-mode="heatmap">Heatmap</button></div></div>`;
+  if (isAudio) return `<div class="xai-mode-bar"><div><strong>Penjelasan Pola Audio</strong><span>Bandingkan sinyal suara dan distribusi frekuensi simulatif.</span></div><div class="xai-segmented" role="group" aria-label="Mode analisis audio"><button class="${state.audioXaiMode === "voice" ? "active" : ""}" type="button" data-audio-xai-mode="voice">Voice Pattern</button><button class="${state.audioXaiMode === "spectrogram" ? "active" : ""}" type="button" data-audio-xai-mode="spectrogram">Spectrogram</button></div></div>`;
+  if (isQr) return `<div class="xai-mode-bar"><div><strong>Penjelasan Risiko Tujuan</strong><span>Lihat sinyal struktur dan jalur yang mungkin dilalui.</span></div><div class="xai-segmented" role="group" aria-label="Mode analisis QR atau tautan"><button class="${state.qrXaiMode === "risk" ? "active" : ""}" type="button" data-qr-xai-mode="risk">Risk Map</button><button class="${state.qrXaiMode === "redirect" ? "active" : ""}" type="button" data-qr-xai-mode="redirect">Redirect Chain</button></div></div>`;
+  return "";
+}
+
+function audioAnalysisPreview() {
+  return `<div class="audio-analysis-stage"><div class="audio-analysis-meta"><span>VOICE SAMPLE / 00:18</span><b>${state.audioXaiMode === "voice" ? "Pola suara" : "Spektrum frekuensi"}</b></div><div class="${state.audioXaiMode === "spectrogram" ? "spectrogram-panel" : "voice-pattern-panel"}">${waveformBars(58, "analysis-wave")}<span class="audio-marker marker-one">1</span><span class="audio-marker marker-two">2</span><span class="audio-marker marker-three">3</span></div><div class="audio-time-axis"><span>00:00</span><span>00:06</span><span>00:12</span><span>00:18</span></div><audio controls preload="metadata" src="${state.audioDataUrl}"></audio><div class="ai-transcript"><span>Transkrip simulasi</span><p>Nak, ini Mama. Nomor Mama bermasalah. <mark>Tolong transfer sekarang</mark> dan <mark>jangan telepon dulu</mark>.</p></div></div>`;
+}
+
+function qrAnalysisPreview() {
+  const isImage = state.qrInputMode === "image" && state.qrImageDataUrl;
+  if (state.qrXaiMode === "redirect") {
+    return `<div class="redirect-analysis"><span class="analysis-label">SIMULATED REDIRECT TRACE</span><div class="redirect-chain"><div><i>1</i><span>Input pengguna<small>${isImage ? "QR image decode" : escapeHtml(safeHostname(state.content))}</small></span></div><b></b><div class="warn"><i>2</i><span>Short redirect<small>tracking-gateway.example</small></span></div><b></b><div class="danger"><i>3</i><span>Form kredensial<small>secure-login-check.example</small></span></div></div><p>Rantai ini adalah visualisasi dataset simulasi. HADANGIN tidak membuka alamat tersebut.</p></div>`;
+  }
+  if (isImage) {
+    return `<div class="qr-image-analysis"><img src="${state.qrImageDataUrl}" alt="QR upload dalam pemetaan risiko" /><span class="qr-scan-line"></span><span class="qr-focus focus-a">1</span><span class="qr-focus focus-b">2</span></div><div class="qr-destination"><span>Tujuan terbaca / simulasi</span><strong>pay-verify.example</strong><small>Penerima belum dapat dikonfirmasi</small></div>`;
+  }
+  const hostname = safeHostname(state.content);
+  const parts = state.content.replace(/^https?:\/\//i, "").split(/([./?=&-])/).filter(Boolean);
+  return `<div class="url-risk-analysis"><span class="analysis-label">URL TOKEN RISK MAP</span><div class="url-token-map">${parts.slice(0, 18).map((part, index) => `<span class="${index === 0 || /login|verify|secure|otp/i.test(part) ? "flagged" : ""}">${escapeHtml(part)}</span>`).join("")}</div><div class="domain-facts"><div><span>Host terbaca</span><strong>${escapeHtml(hostname)}</strong></div><div><span>Pola terdeteksi</span><strong>Login + urgency</strong></div><div><span>Status</span><strong>Perlu verifikasi</strong></div></div></div>`;
 }
 
 function detectionPreviewContent(detection, previewText) {
@@ -689,8 +823,8 @@ function detectionPreviewContent(detection, previewText) {
 }
 
 function aiLens() {
-  const profile = activeProfile();
-  const detection = activeDetection();
+  const profile = analysisProfile();
+  const detection = analysisDetection();
   return `<div class="flow-card">
     <header class="ai-header"><span class="ai-scan-icon" aria-hidden="true"></span><div><p class="section-kicker">AI Second</p><h2>AI Lens</h2><p>Second opinion dengan visual clue, confidence score, dan pertanyaan reflektif - bukan keputusan akhir.</p></div></header>
     ${detectionPanel(profile, detection)}
@@ -705,7 +839,7 @@ function aiLens() {
 }
 
 function humanFinal() {
-  const profile = activeProfile();
+  const profile = analysisProfile();
   const decisions = state.aiWrong ? ["Saya setuju dengan AI", "Saya tidak setuju dengan AI", "Verifikasi lagi", "Belum yakin"] : ["Lanjut", "Verifikasi Dulu", "Berhenti", "Belum Yakin"];
   return `<div class="flow-card">
     <header><p class="section-kicker">Human Final</p><h2>Bandingkan. Pertimbangkan. Putuskan.</h2><p>AI memberi sinyal; bukti dan penalaranmu menentukan maknanya.</p></header>
@@ -729,7 +863,7 @@ function reflectionScreen() {
 }
 
 function resultScreen() {
-  const profile = activeProfile();
+  const profile = analysisProfile();
   const goodFinal = ["Verifikasi Dulu", "Berhenti", "Saya tidak setuju dengan AI", "Verifikasi lagi"].includes(state.finalDecision);
   const skills = [
     ["Mengenali tekanan", state.pressure.length > 1 ? 88 : 76],
@@ -793,10 +927,16 @@ function dashboardPage() {
 }
 
 function trainingPage() {
-  return `<section class="page-hero"><div class="page-shell"><p class="eyebrow">Latihan Hadang</p><h1>Latih Nalar Sebelum Situasi Nyata Datang.</h1><p>Hadapi simulasi manipulasi digital yang dekat dengan kehidupan sehari-hari. Setiap skenario berlangsung sekitar dua menit.</p></div></section>
-    <section class="section"><div class="page-shell">
+  return `<section class="page-hero training-hero">
+      <div class="training-3d-stage" id="training-3d-stage" role="img" aria-label="Arena Gobak Sodor 3D interaktif dengan empat penjaga J.E.D.A."><div class="training-3d-loading"><span></span><strong>Menyiapkan arena 3D</strong></div></div>
+      <div class="training-3d-toolbar" aria-label="Kontrol arena 3D"><button type="button" data-3d-action="reset" aria-label="Atur ulang kamera" title="Atur ulang kamera">&#8635;</button><button type="button" data-3d-action="pause" aria-label="Jeda animasi" title="Jeda animasi">&#10074;&#10074;</button></div>
+      <div class="training-3d-inspector" aria-live="polite"><span>Penjaga J.E.D.A.</span><strong>Pilih penjaga di arena</strong><p>Klik karakter untuk melihat tugasnya menghadang informasi.</p><button class="button button-small" type="button" data-scenario="family-emergency" disabled>Mulai Latihan</button></div>
+      <div class="page-shell training-hero-inner"><div class="training-hero-copy"><p class="eyebrow">Latihan Hadang &middot; Arena 3D</p><h1>Latih Nalar Sebelum Situasi Nyata Datang.</h1><p>Hadapi simulasi manipulasi digital yang dekat dengan kehidupan sehari-hari. Setiap skenario berlangsung sekitar dua menit.</p><div class="training-hero-actions"><button class="button" type="button" data-scroll-to="training-arenas">Pilih Skenario <span aria-hidden="true">&#8595;</span></button><div class="training-hero-status"><span>7 arena</span><span>4 garis J.E.D.A.</span><span>Human First</span></div></div></div></div>
+      <span class="training-hero-caption">Geser kamera &middot; Klik penjaga</span>
+    </section>
+    <section class="section training-arena-section" id="training-arenas"><div class="page-shell">
       <div class="section-header"><p class="section-kicker">7 skenario interaktif</p><h2>Pilih arena latihan</h2><p>Mulai dari pesan keluarga untuk melihat seluruh alur, atau uji automation bias pada skenario khusus.</p></div>
-      <div class="scenario-grid">${scenarios.map((scenario) => `<article class="scenario-card ${scenario.featured ? "featured" : ""}"><span class="scenario-no">${scenario.no}</span><h3>${scenario.title}</h3><p>${scenario.description}</p><div class="chip-row">${scenario.triggers.map((trigger) => `<span class="chip ${scenario.featured ? "chip-terra" : ""}">${trigger}</span>`).join("")}</div><button class="button ${scenario.featured ? "" : "button-secondary"}" data-scenario="${scenario.id}">Mulai Skenario</button></article>`).join("")}</div>
+      <div class="scenario-grid">${scenarios.map((scenario) => `<article class="scenario-card ${scenario.featured ? "featured" : ""}" data-scenario-card="${scenario.id}"><span class="scenario-no">${scenario.no}</span><h3>${scenario.title}</h3><p>${scenario.description}</p><div class="chip-row">${scenario.triggers.map((trigger) => `<span class="chip ${scenario.featured ? "chip-terra" : ""}">${trigger}</span>`).join("")}</div><button class="button ${scenario.featured ? "" : "button-secondary"}" data-scenario="${scenario.id}">Mulai Skenario</button></article>`).join("")}</div>
     </div></section>`;
 }
 
@@ -826,6 +966,8 @@ function startScenario(id) {
   resetFlow();
   state.content = scenario.content;
   state.inputType = "text";
+  state.fileName = "";
+  state.imageDataUrl = "";
   state.scenarioId = scenario.id;
   state.aiWrong = Boolean(scenario.aiWrong);
   state.inFlow = true;
@@ -876,7 +1018,43 @@ document.addEventListener("click", (event) => {
   if (target.dataset.inputType) {
     const textarea = document.querySelector("#content-input");
     if (textarea) state.content = textarea.value.trim();
-    state.inputType = target.dataset.inputType;
+    const nextType = target.dataset.inputType;
+    if (nextType !== state.inputType && ["image", "audio"].includes(nextType)) {
+      state.fileName = "";
+      state.imageDataUrl = "";
+      state.audioDataUrl = "";
+      state.content = "";
+    }
+    if (nextType === "text" && !state.content) state.content = DEFAULT_MESSAGE;
+    state.inputType = nextType;
+    if (nextType === "audio") state.scenarioId = "audio-impersonation";
+    if (nextType === "qr") state.scenarioId = state.qrInputMode === "image" ? "qr-payment" : "bank-message";
+    render();
+    setTimeout(() => document.getElementById("verify-tool")?.scrollIntoView(), 0);
+    return;
+  }
+  if (target.dataset.xaiMode) {
+    state.xaiMode = target.dataset.xaiMode;
+    render({ preserveScroll: true });
+    return;
+  }
+  if (target.dataset.audioXaiMode) {
+    state.audioXaiMode = target.dataset.audioXaiMode;
+    render({ preserveScroll: true });
+    return;
+  }
+  if (target.dataset.qrXaiMode) {
+    state.qrXaiMode = target.dataset.qrXaiMode;
+    render({ preserveScroll: true });
+    return;
+  }
+  if (target.dataset.qrInputMode) {
+    state.qrInputMode = target.dataset.qrInputMode;
+    state.qrXaiMode = "risk";
+    state.fileName = "";
+    state.qrImageDataUrl = "";
+    state.content = "";
+    state.scenarioId = state.qrInputMode === "image" ? "qr-payment" : "bank-message";
     render();
     setTimeout(() => document.getElementById("verify-tool")?.scrollIntoView(), 0);
     return;
@@ -909,11 +1087,30 @@ document.addEventListener("click", (event) => {
   } else if (action === "hide-question") {
     state.questionOpen = false;
     render({ preserveScroll: true });
+  } else if (action === "remove-image") {
+    state.fileName = "";
+    state.imageDataUrl = "";
+    state.content = "";
+    render();
+    setTimeout(() => document.getElementById("verify-tool")?.scrollIntoView(), 0);
+  } else if (action === "remove-audio") {
+    state.fileName = "";
+    state.audioDataUrl = "";
+    state.content = "";
+    render();
+    setTimeout(() => document.getElementById("verify-tool")?.scrollIntoView(), 0);
+  } else if (action === "remove-qr") {
+    state.fileName = "";
+    state.qrImageDataUrl = "";
+    state.content = "";
+    render();
+    setTimeout(() => document.getElementById("verify-tool")?.scrollIntoView(), 0);
   } else if (action === "start-check") {
     const textarea = document.querySelector("#content-input");
     if (textarea?.value.trim()) state.content = textarea.value.trim();
     if (["image", "audio"].includes(state.inputType) && !state.fileName) return showToast("Pilih file terlebih dahulu.");
-    if (state.inputType === "qr" && !state.content.trim().match(/^https?:\/\//i)) return showToast("Masukkan tautan yang valid, diawali http:// atau https://.");
+    if (state.inputType === "qr" && state.qrInputMode === "image" && !state.fileName) return showToast("Pilih gambar QR terlebih dahulu.");
+    if (state.inputType === "qr" && state.qrInputMode === "link" && !state.content.trim().match(/^https?:\/\//i)) return showToast("Masukkan tautan yang valid, diawali http:// atau https://.");
     if (!state.content && !state.fileName) return showToast("Masukkan konten atau pilih file terlebih dahulu.");
     state.inFlow = true;
     state.stage = 2;
@@ -957,7 +1154,7 @@ document.addEventListener("click", (event) => {
 document.addEventListener("input", (event) => {
   if (event.target.matches("#content-input")) {
     state.content = event.target.value;
-    state.scenarioId = "family-emergency";
+    state.scenarioId = state.inputType === "qr" ? "bank-message" : "family-emergency";
     state.aiWrong = false;
   }
   if (event.target.dataset.range === "initial-confidence") {
@@ -974,14 +1171,53 @@ document.addEventListener("change", (event) => {
   if (event.target.matches("#file-input")) {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) return showToast("Ukuran file melebihi batas 10 MB.");
-    state.fileName = file.name;
-    state.content = `${state.inputType === "audio" ? "Rekaman audio" : "Gambar"}: ${file.name}`;
-    state.scenarioId = "family-emergency";
-    state.aiWrong = false;
+    processUploadedFile(file);
+  }
+});
+
+function processUploadedFile(file) {
+  if (file.size > 10 * 1024 * 1024) return showToast("Ukuran file melebihi batas 10 MB.");
+  const expectsImage = state.inputType === "image" || (state.inputType === "qr" && state.qrInputMode === "image");
+  const expectsAudio = state.inputType === "audio";
+  if (expectsImage && !file.type.startsWith("image/")) return showToast("Pilih file gambar PNG, JPG, atau WEBP.");
+  if (expectsAudio && !file.type.startsWith("audio/")) return showToast("Pilih file audio MP3, WAV, atau M4A.");
+  state.fileName = file.name;
+  state.content = `${expectsAudio ? "Rekaman audio" : state.inputType === "qr" ? "Gambar QR" : "Gambar"}: ${file.name}`;
+  state.scenarioId = expectsAudio ? "audio-impersonation" : state.inputType === "qr" ? "qr-payment" : "manipulated-media";
+  state.aiWrong = false;
+  state.xaiMode = "bounding";
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    if (expectsAudio) state.audioDataUrl = String(reader.result);
+    else if (state.inputType === "qr") state.qrImageDataUrl = String(reader.result);
+    else state.imageDataUrl = String(reader.result);
     render();
     setTimeout(() => document.getElementById("verify-tool")?.scrollIntoView(), 0);
-  }
+  }, { once: true });
+  reader.addEventListener("error", () => showToast("File tidak dapat dibaca."), { once: true });
+  reader.readAsDataURL(file);
+}
+
+document.addEventListener("dragover", (event) => {
+  const zone = event.target.closest?.("[data-drop-zone]");
+  if (!zone || !["image", "audio", "qr"].includes(state.inputType)) return;
+  event.preventDefault();
+  zone.classList.add("drag-active");
+});
+
+document.addEventListener("dragleave", (event) => {
+  const zone = event.target.closest?.("[data-drop-zone]");
+  if (!zone || zone.contains(event.relatedTarget)) return;
+  zone.classList.remove("drag-active");
+});
+
+document.addEventListener("drop", (event) => {
+  const zone = event.target.closest?.("[data-drop-zone]");
+  if (!zone || !["image", "audio", "qr"].includes(state.inputType)) return;
+  event.preventDefault();
+  zone.classList.remove("drag-active");
+  const file = event.dataTransfer?.files?.[0];
+  if (file) processUploadedFile(file);
 });
 
 document.addEventListener("pointermove", (event) => {
@@ -1004,3 +1240,6 @@ document.addEventListener("pointerout", (event) => {
 window.addEventListener("hashchange", render);
 if (!location.hash) history.replaceState(null, "", "#/verify");
 render();
+
+// Exposed only for the local browser regression harness.
+Object.assign(window, { DEFAULT_MESSAGE, state, render, resetFlow, processUploadedFile });
