@@ -169,8 +169,111 @@ const scenarioProfiles = {
   },
 };
 
+const detectionProfiles = {
+  "family-emergency": {
+    mode: "message",
+    title: "Pesan darurat keluarga",
+    subtitle: "Simulasi analisis teks WhatsApp",
+    summary: "Model menemukan tekanan aksi cepat, identitas belum terverifikasi, dan permintaan transfer yang sulit dibatalkan.",
+    confidenceLabel: "Manipulation likelihood",
+    highlights: [
+      { label: "Urgency", detail: "'sekarang' dan 'tolong cepat' mempersempit ruang berpikir.", x: 12, y: 20, w: 44, h: 18 },
+      { label: "Identity gap", detail: "Nomor baru mengaku keluarga tanpa bukti independen.", x: 36, y: 44, w: 48, h: 18 },
+      { label: "Risky action", detail: "Permintaan transfer muncul sebelum identitas dikonfirmasi.", x: 18, y: 69, w: 58, h: 16 },
+    ],
+    clues: ["Tekanan waktu tinggi", "Identitas pengirim belum dikonfirmasi", "Aksi finansial diminta di awal", "Kanal verifikasi independen tersedia"],
+    reflectiveQuestions: ["Apakah kamu sudah menelepon nomor keluarga yang tersimpan?", "Apa risiko jika transfer dilakukan sebelum konfirmasi?", "Siapa sumber lain yang bisa mengonfirmasi keadaan darurat ini?"],
+  },
+  "qr-payment": {
+    mode: "qr",
+    title: "QR pembayaran mencurigakan",
+    subtitle: "Simulasi analisis QR/link",
+    summary: "Model menandai kemungkinan QR pengganti, tetapi penerima pembayaran tetap harus diverifikasi langsung kepada merchant.",
+    confidenceLabel: "QR risk signal",
+    highlights: [
+      { label: "Overlay", detail: "Area stiker tampak seperti lapisan baru di atas permukaan lama.", x: 21, y: 24, w: 56, h: 44 },
+      { label: "Recipient unknown", detail: "Pemilik rekening tujuan belum terlihat sebelum pembayaran.", x: 18, y: 73, w: 64, h: 14 },
+    ],
+    clues: ["QR baru menggantikan kanal lama", "Penerima dana belum terlihat", "Konteks kasir perlu dicek langsung", "Pembayaran adalah aksi sulit dibatalkan"],
+    reflectiveQuestions: ["Apakah nama penerima cocok dengan merchant?", "Apakah kasir mengonfirmasi QR ini secara langsung?", "Apakah ada kanal pembayaran resmi lain?"],
+  },
+  "job-offer": {
+    mode: "message",
+    title: "Tawaran kerja berbiaya di muka",
+    subtitle: "Simulasi analisis teks rekrutmen",
+    summary: "Model menemukan kombinasi scarcity, otoritas palsu, dan permintaan deposit yang umum pada penipuan lowongan.",
+    confidenceLabel: "Scam pattern likelihood",
+    highlights: [
+      { label: "Scarcity", detail: "'posisi terbatas' mendorong keputusan cepat.", x: 14, y: 19, w: 48, h: 18 },
+      { label: "Authority", detail: "Mengatasnamakan perusahaan tanpa kanal resmi.", x: 26, y: 43, w: 54, h: 18 },
+      { label: "Upfront fee", detail: "Biaya administrasi diminta sebelum verifikasi HR.", x: 18, y: 69, w: 62, h: 16 },
+    ],
+    clues: ["Ada biaya rekrutmen di muka", "Klaim perusahaan belum diverifikasi", "Tekanan waktu tinggi", "Kontak HR resmi tersedia sebagai pembanding"],
+    reflectiveQuestions: ["Apakah perusahaan resmi meminta deposit?", "Apakah domain email pengirim cocok dengan perusahaan?", "Bisakah posisi ini ditemukan di kanal karier resmi?"],
+  },
+  "bank-message": {
+    mode: "link",
+    title: "Pesan bank dan tautan verifikasi",
+    subtitle: "Simulasi analisis teks + link",
+    summary: "Model menandai ancaman pemblokiran, otoritas bank, dan tautan verifikasi sebagai pola phishing berisiko tinggi.",
+    confidenceLabel: "Phishing likelihood",
+    highlights: [
+      { label: "Threat", detail: "Ancaman blokir 30 menit menciptakan rasa takut.", x: 12, y: 18, w: 55, h: 18 },
+      { label: "External link", detail: "Tautan mengarahkan keluar dari kanal resmi yang diketik sendiri.", x: 24, y: 50, w: 58, h: 18 },
+      { label: "Credential risk", detail: "Verifikasi identitas dapat berujung data pribadi/OTP.", x: 18, y: 72, w: 64, h: 14 },
+    ],
+    clues: ["Menggunakan ancaman pemblokiran", "Mengarahkan ke tautan", "Mengatasnamakan institusi finansial", "OTP dan kredensial tidak boleh dibagikan"],
+    reflectiveQuestions: ["Apakah notifikasi yang sama ada di aplikasi bank resmi?", "Apakah kamu mengetik alamat resmi sendiri, bukan dari link?", "Apakah pesan meminta OTP atau data sensitif?"],
+  },
+  "viral-info": {
+    mode: "message",
+    title: "Klaim viral tanpa sumber primer",
+    subtitle: "Simulasi analisis headline sosial",
+    summary: "Model menemukan ajakan menyebarkan segera, framing konspiratif, dan ketiadaan sumber primer.",
+    confidenceLabel: "Disinformation signal",
+    highlights: [
+      { label: "Share pressure", detail: "Ajakan menyebarkan muncul sebelum bukti diberikan.", x: 13, y: 20, w: 56, h: 18 },
+      { label: "Conspiracy frame", detail: "'mereka menutupi fakta' memancing curiga dan marah.", x: 22, y: 45, w: 58, h: 18 },
+      { label: "No source", detail: "Tidak ada sumber primer yang bisa diverifikasi.", x: 24, y: 70, w: 50, h: 15 },
+    ],
+    clues: ["Viralitas dipakai sebagai tekanan sosial", "Sumber primer tidak terlihat", "Bahasa emosional kuat", "Perlu cek tanggal dan konteks"],
+    reflectiveQuestions: ["Sumber primer klaim ini apa?", "Apakah ada laporan independen yang menyebut hal sama?", "Apa dampaknya jika kamu share dan ternyata keliru?"],
+  },
+  "manipulated-media": {
+    mode: "media",
+    title: "Video tokoh publik / media manipulatif",
+    subtitle: "Simulasi analisis visual + audio",
+    summary: "Model menandai area wajah, sinkronisasi audio, dan konteks unggahan sebagai sinyal yang perlu diverifikasi.",
+    confidenceLabel: "Synthetic media likelihood",
+    highlights: [
+      { label: "Face sync", detail: "Gerak mulut dan ekspresi tampak tidak sepenuhnya selaras.", x: 34, y: 18, w: 30, h: 34 },
+      { label: "Hand / edge", detail: "Tepi objek dan tangan tampak terlalu halus atau berubah bentuk.", x: 14, y: 56, w: 25, h: 22 },
+      { label: "Call to invest", detail: "Ajakan investasi segera muncul tanpa kanal resmi.", x: 47, y: 67, w: 38, h: 16 },
+    ],
+    clues: ["Sinkronisasi wajah perlu diperiksa", "Pola audio tampak tidak konsisten", "Sumber unggahan tidak jelas", "Ada ajakan finansial cepat"],
+    reflectiveQuestions: ["Apakah video ini ada di kanal resmi tokoh?", "Apakah ada versi asli dengan konteks lengkap?", "Apakah produk investasi punya izin resmi?"],
+  },
+  "ai-can-be-wrong": {
+    mode: "official",
+    title: "Kemungkinan false positive AI",
+    subtitle: "Simulasi analisis dengan bukti resmi lebih kuat",
+    summary: "Model menemukan format massal yang tampak mencurigakan, tetapi bukti pada aplikasi resmi dapat membantah sinyal AI.",
+    confidenceLabel: "Suspicious signal",
+    highlights: [
+      { label: "Formal template", detail: "Format pengumuman massal kadang mirip pesan palsu.", x: 14, y: 22, w: 54, h: 18 },
+      { label: "Official channel needed", detail: "Keputusan harus mengikuti bukti di aplikasi/kanal resmi.", x: 20, y: 54, w: 60, h: 18 },
+    ],
+    clues: ["Sinyal AI tidak sama dengan kebenaran", "Bukti resmi bisa lebih kuat", "Format formal dapat memicu false positive", "Manusia tetap memegang keputusan akhir"],
+    reflectiveQuestions: ["Apakah aplikasi resmi menampilkan pengumuman yang sama?", "Bukti mana yang lebih dapat diverifikasi daripada skor AI?", "Kapan kamu perlu tidak setuju dengan AI?"],
+  },
+};
+
 function activeProfile() {
   return scenarioProfiles[state.scenarioId] || scenarioProfiles["family-emergency"];
+}
+
+function activeDetection() {
+  return detectionProfiles[state.scenarioId] || detectionProfiles["family-emergency"];
 }
 
 const state = {
@@ -223,6 +326,7 @@ function showToast(message) {
 function routeFromHash() {
   const path = location.hash.replace(/^#\/?/, "").split("/")[0];
   if (path === "training") return "training";
+  if (path === "dashboard") return "dashboard";
   if (path === "how-it-works") return "how";
   if (path === "about") return "about";
   return "verify";
@@ -261,7 +365,7 @@ function resetFlow() {
 }
 
 function goToRoute(route) {
-  const hashes = { verify: "#/verify", training: "#/training", how: "#/how-it-works", about: "#/about" };
+  const hashes = { verify: "#/verify", training: "#/training", dashboard: "#/dashboard", how: "#/how-it-works", about: "#/about" };
   location.hash = hashes[route];
 }
 
@@ -271,6 +375,7 @@ function render(options = {}) {
   state.route = routeFromHash();
   setActiveNav();
   if (state.route === "training") app.innerHTML = trainingPage();
+  else if (state.route === "dashboard") app.innerHTML = dashboardPage();
   else if (state.route === "how") app.innerHTML = howPage();
   else if (state.route === "about") app.innerHTML = aboutPage();
   else app.innerHTML = state.inFlow ? verificationFlow() : verifyPage();
@@ -294,9 +399,10 @@ function hero() {
       </video>
       <div class="hero-inner">
         <div class="hero-copy">
-          <p class="eyebrow">UNESCO Media &amp; Information Literacy</p>
-          <h1>Hadang Sebelum Terjebak.</h1>
-          <p class="lead">Analisis informasi mencurigakan, kenali tekanan psikologisnya, dan gunakan AI sebagai second opinion sebelum kamu klik, transfer, scan, atau membagikannya.</p>
+          <p class="eyebrow">AI Context Guard Web &middot; Indonesian Local Prototype</p>
+          <h1>HADANGIN: Hadang Sebelum Terjebak.</h1>
+          <p class="lead">HADANGIN memposisikan AI Context Guard Web dalam konteks Indonesia: bantu pengguna pause, verify, reflect, dan evaluate sebelum klik, transfer, scan, atau membagikan informasi digital.</p>
+          <div class="localization-note"><strong>Localized from AI Context Guard Web</strong><span>Metode J.E.D.A. menerjemahkan prinsip MIL menjadi pengalaman interaktif berbasis budaya hadang/gobak sodor.</span></div>
           <div class="hero-actions button-row">
             <button class="button" data-scroll-to="verify-tool">Mulai Pemeriksaan <span aria-hidden="true">&#8594;</span></button>
             <a class="button button-secondary" href="#/training">Coba Latihan</a>
@@ -304,18 +410,43 @@ function hero() {
           <div class="hero-principle"><span>Human First</span><i></i><span>AI Second</span><i></i><span>Human Final</span></div>
         </div>
       </div>
-      <span class="hero-scroll">Gulir untuk memeriksa</span>
+      <span class="hero-scroll">Gulir untuk memahami alur</span>
     </section>`;
+}
+
+function onboardingSection() {
+  const moments = [
+    ["1", "Informasi datang", "Pesan, screenshot, QR, audio, atau tautan terasa mendesak dan meminta tindakan cepat."],
+    ["2", "Ambil J.E.D.A.", "Berhenti sejenak untuk membaca tekanan, emosi, bukti, dan risiko tindakan yang diminta."],
+    ["3", "Minta second opinion", "AI Lens membantu melihat sinyal manipulasi dan hal yang masih perlu diverifikasi."],
+    ["4", "Putuskan dengan sadar", "Keputusan akhir tetap milikmu, lalu refleksi mencatat apa yang mengubah penilaianmu."],
+  ];
+  return `<section class="section section-white onboarding-section" id="onboarding">
+    <div class="page-shell">
+      <div class="onboarding-layout">
+        <div class="onboarding-story">
+          <p class="section-kicker">Sebelum mulai</p>
+          <h2>Bayangkan ada pesan yang membuatmu ingin langsung bertindak.</h2>
+          <p>HADANGIN tidak memulai dari jawaban AI. Pengguna diajak memahami situasi dulu: apa isi informasinya, tekanan apa yang muncul, bukti apa yang tersedia, dan tindakan apa yang paling aman.</p>
+          <p class="story-highlight">Tujuannya bukan sekadar menemukan “hoaks” atau “bukan hoaks”, tetapi membangun kebiasaan berpikir: berhenti dulu, periksa konteks, gunakan AI sebagai lensa, lalu ambil keputusan sendiri.</p>
+        </div>
+        <div class="onboarding-path" aria-label="Alur onboarding HADANGIN">
+          ${moments.map(([no, title, text]) => `<article class="onboarding-card"><span>${no}</span><div><h3>${title}</h3><p>${text}</p></div></article>`).join("")}
+        </div>
+      </div>
+    </div>
+  </section>`;
 }
 
 function verifyPage() {
   return `${hero()}
+    ${onboardingSection()}
     <section class="section" id="verify-tool">
       <div class="page-shell">
         <div class="section-header center">
-          <p class="section-kicker">Mulai dari penilaianmu</p>
+          <p class="section-kicker">AI Context Guard versi lokal</p>
           <h2>Periksa Informasi Mencurigakan</h2>
-          <p>Masukkan konten yang ingin kamu evaluasi. AI belum akan memberikan keputusan sampai kamu membentuk penilaian awal.</p>
+          <p>Masukkan konten yang ingin kamu evaluasi. HADANGIN menjaga prinsip Human First: AI belum akan memberikan sinyal sampai kamu membentuk penilaian awal.</p>
         </div>
         <div class="card tool-card">
           <div class="card-header">
@@ -335,9 +466,9 @@ function verifyPage() {
       </div>
     </section>
     <div class="feature-strip" aria-label="Prinsip pemeriksaan">
-      <article><span class="feature-number">01 / MANUSIA</span><h3>Bentuk penilaian awal</h3><p>Respons dan keyakinanmu dicatat sebelum sinyal AI ditampilkan.</p></article>
-      <article><span class="feature-number">02 / J.E.D.A.</span><h3>Hadang di empat garis nalar</h3><p>Kenali tekanan, emosi, data, dan risiko aksi yang diminta.</p></article>
-      <article><span class="feature-number">03 / KEPUTUSAN</span><h3>Bandingkan, lalu putuskan</h3><p>AI memberi second opinion. Keputusan final tetap berada padamu.</p></article>
+      <article><span class="feature-number">01 / PAUSE</span><h3>Bentuk penilaian awal</h3><p>Respons dan keyakinanmu dicatat sebelum sinyal AI ditampilkan.</p></article>
+      <article><span class="feature-number">02 / J.E.D.A.</span><h3>Question &amp; check</h3><p>Metode lokal untuk mengenali tekanan, emosi, data, dan risiko aksi.</p></article>
+      <article><span class="feature-number">03 / DECIDE</span><h3>Bandingkan, lalu putuskan</h3><p>AI memberi second opinion. Keputusan final tetap berada padamu.</p></article>
     </div>`;
 }
 
@@ -511,12 +642,60 @@ function hadangActions(label, enabled) {
   return `<div class="flow-actions"><button class="button button-ghost" data-action="hadang-back">Kembali</button><button class="button button-teal" data-action="hadang-next" ${enabled ? "" : "disabled"}>${label}</button></div>`;
 }
 
+function detectionPanel(profile, detection) {
+  const previewText = state.content || DEFAULT_MESSAGE;
+  return `<section class="detection-panel" aria-label="Explainable AI detection simulation">
+    <div class="detection-header">
+      <div><p class="section-kicker">Explainable detection</p><h3>${escapeHtml(detection.title)}</h3><p>${escapeHtml(detection.subtitle)}</p></div>
+      <div class="confidence-badge"><span>${escapeHtml(detection.confidenceLabel)}</span><strong>${profile.aiScore}%</strong></div>
+    </div>
+    <div class="detection-grid">
+      <div class="detection-preview ${escapeHtml(detection.mode)}">
+        <div class="preview-toolbar"><span></span><span></span><span></span><strong>AI Context Scan</strong></div>
+        <div class="preview-canvas">
+          ${detectionPreviewContent(detection, previewText)}
+          ${detection.highlights.map((item, index) => `<span class="red-box" style="--x:${item.x}%; --y:${item.y}%; --w:${item.w}%; --h:${item.h}%"><b>${index + 1}</b></span>`).join("")}
+        </div>
+        <p class="preview-disclaimer">Simulasi frontend: highlight menunjukkan cara hasil AI dapat dijelaskan, bukan bukti final.</p>
+      </div>
+      <div class="detection-explain">
+        <p class="detection-summary">${escapeHtml(detection.summary)}</p>
+        <div class="highlight-list">
+          ${detection.highlights.map((item, index) => `<article><span>${index + 1}</span><div><h4>${escapeHtml(item.label)}</h4><p>${escapeHtml(item.detail)}</p></div></article>`).join("")}
+        </div>
+      </div>
+    </div>
+    <div class="clue-question-grid">
+      <section class="info-panel clue-panel"><h3>Clue yang terlihat</h3><ul>${detection.clues.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>
+      <section class="info-panel question-panel"><h3>Pertanyaan reflektif</h3><ul>${detection.reflectiveQuestions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>
+    </div>
+  </section>`;
+}
+
+function detectionPreviewContent(detection, previewText) {
+  if (detection.mode === "qr") {
+    return `<div class="qr-preview"><span></span><span></span><span></span><i></i></div><div class="preview-caption">QR baru di area pembayaran</div>`;
+  }
+  if (detection.mode === "media") {
+    return `<div class="media-preview"><span class="media-face"></span><span class="media-body"></span><i></i><em></em></div><div class="preview-caption">Frame video / gambar yang dianalisis</div>`;
+  }
+  if (detection.mode === "link") {
+    return `<div class="link-preview"><strong>Bank Alert</strong><p>Rekening Anda akan diblokir dalam 30 menit.</p><code>https://secure-verifikasi.example/login</code></div>`;
+  }
+  if (detection.mode === "official") {
+    return `<div class="official-preview"><strong>Pemberitahuan Resmi</strong><p>${escapeHtml(previewText)}</p><span>Perlu dicocokkan dengan aplikasi resmi.</span></div>`;
+  }
+  return `<div class="message-preview"><p>${escapeHtml(previewText)}</p></div>`;
+}
+
 function aiLens() {
   const profile = activeProfile();
+  const detection = activeDetection();
   return `<div class="flow-card">
-    <header class="ai-header"><span class="ai-scan-icon" aria-hidden="true"></span><div><p class="section-kicker">AI Second</p><h2>AI Lens</h2><p>Second opinion - bukan keputusan akhir.</p></div></header>
+    <header class="ai-header"><span class="ai-scan-icon" aria-hidden="true"></span><div><p class="section-kicker">AI Second</p><h2>AI Lens</h2><p>Second opinion dengan visual clue, confidence score, dan pertanyaan reflektif - bukan keputusan akhir.</p></div></header>
+    ${detectionPanel(profile, detection)}
     <div class="ai-notice-grid">${profile.aiNotices.map(([label, value]) => `<div class="signal-card"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div>`).join("")}</div>
-    <div class="forensic-meter"><div class="forensic-meter-head"><strong>${state.aiWrong ? "Suspicious Signals" : "Manipulation Signals"}: ${profile.aiLevel}</strong><span>${profile.aiScore}% indikator model</span></div><div class="meter"><span style="width:${profile.aiScore}%"></span></div><p>Nilai ini menunjukkan sinyal model, bukan kebenaran final.</p></div>
+    <div class="forensic-meter"><div class="forensic-meter-head"><strong>${state.aiWrong ? "Suspicious Signals" : "Manipulation Signals"}: ${profile.aiLevel}</strong><span>${profile.aiScore}% indikator model</span></div><div class="meter"><span style="width:${profile.aiScore}%"></span></div><p>Nilai ini menunjukkan sinyal model, bukan kebenaran final. Gunakan hasil ini untuk menentukan apa yang perlu dicek, bukan untuk langsung percaya.</p></div>
     <div class="ai-columns">
       <section class="info-panel unknown"><h3>Yang belum dapat dipastikan AI</h3><ul>${profile.unknowns.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>
       <section class="info-panel verify"><h3>Yang dapat kamu verifikasi</h3><ul>${profile.verification.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>
@@ -567,6 +746,52 @@ function resultScreen() {
   </div>`;
 }
 
+const dashboardData = {
+  summary: [
+    ["Pemeriksaan simulatif", "128", "+24 minggu ini"],
+    ["Safer decision shift", "64%", "berubah ke verifikasi/berhenti"],
+    ["MIL Habit Score", "78", "rata-rata dari 100"],
+    ["Forward risk turun", "34 pts", "sebelum vs sesudah J.E.D.A."],
+  ],
+  before: [["Lanjut", 42], ["Verifikasi Dulu", 28], ["Berhenti", 12], ["Belum Yakin", 18]],
+  after: [["Lanjut", 9], ["Verifikasi Dulu", 57], ["Berhenti", 25], ["Belum Yakin", 9]],
+  patterns: [["Urgency", 87], ["Fear", 73], ["Fake Authority", 59], ["Emotional Clickbait", 54], ["Suspicious Link", 41], ["Synthetic Media", 33], ["Financial Request", 28]],
+  media: [["Text / WhatsApp", 46], ["Image / Screenshot", 24], ["QR / Link", 18], ["Audio / Voice Note", 12]],
+  jeda: [["Jeda", 82, "User mulai mengenali tekanan waktu."], ["Emosi", 76, "Fear dan urgency paling sering memengaruhi respons."], ["Data", 71, "Masih perlu latihan memilih bukti independen."], ["Aksi", 79, "Risiko transfer/klik makin terlihat sebelum bertindak."]],
+  explainability: [["Visual highlights dilihat", 89], ["Pertanyaan reflektif dijawab", 76], ["Bukti independen dipilih", 68], ["Tidak mengikuti AI saat bukti lebih kuat", 22]],
+  scenarios: [
+    ["Pesan Keluarga Darurat", "92%", "+48%", "Percaya nomor baru"],
+    ["QR Pembayaran", "81%", "+36%", "Tidak cek penerima"],
+    ["Lowongan Kerja", "77%", "+42%", "Percaya logo/testimoni"],
+    ["AI Bisa Salah", "69%", "+25%", "Terlalu percaya AI"],
+  ],
+};
+
+function dashboardBar([label, value], variant = "") {
+  return `<div class="dash-bar-row ${variant}"><div><span>${escapeHtml(label)}</span><b>${value}%</b></div><i style="--bar:${value}%"></i></div>`;
+}
+
+function dashboardPage() {
+  return `<section class="page-hero dashboard-hero"><div class="page-shell"><p class="eyebrow">Prototype analytics simulation</p><h1>HADANGIN Insight Dashboard</h1><p>Dashboard simulatif untuk menunjukkan dampak pembelajaran MIL: bagaimana pengguna pause, verify, reflect, decide, dan mengurangi risiko forward impulsif.</p></div></section>
+    <section class="section dashboard-section"><div class="page-shell">
+      <div class="dashboard-note"><strong>Catatan demo</strong><span>Angka di halaman ini adalah data simulatif untuk pitch UNESCO. Saat backend ditambahkan, struktur ini dapat diisi dari event pemeriksaan nyata.</span></div>
+      <div class="metric-grid">${dashboardData.summary.map(([label, value, note]) => `<article class="metric-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><p>${escapeHtml(note)}</p></article>`).join("")}</div>
+      <div class="dashboard-grid two">
+        <article class="dashboard-card"><div class="dash-card-head"><p class="section-kicker">Before vs after</p><h2>Perubahan keputusan pengguna</h2><p>Dari respons reaktif menuju verifikasi atau berhenti sebelum share.</p></div><div class="judgment-compare"><section><h3>Sebelum J.E.D.A.</h3>${dashboardData.before.map((item) => dashboardBar(item, "before")).join("")}</section><section><h3>Sesudah AI Lens</h3>${dashboardData.after.map((item) => dashboardBar(item, "after")).join("")}</section></div></article>
+        <article class="dashboard-card"><div class="dash-card-head"><p class="section-kicker">Pattern map</p><h2>Pola manipulasi dominan</h2><p>Insight untuk educator, komunitas, dan peneliti MIL.</p></div><div class="pattern-list">${dashboardData.patterns.map(([label, value]) => dashboardBar([label, value], "pattern")).join("")}</div></article>
+      </div>
+      <div class="dashboard-grid two compact">
+        <article class="dashboard-card"><div class="dash-card-head"><p class="section-kicker">Multimodal input</p><h2>Jenis konten diperiksa</h2></div><div class="media-donut" aria-label="Distribusi tipe media"><span>46%</span></div><div class="media-list">${dashboardData.media.map(([label, value]) => `<p><i style="--dot:${value}%"></i><span>${escapeHtml(label)}</span><b>${value}%</b></p>`).join("")}</div></article>
+        <article class="dashboard-card"><div class="dash-card-head"><p class="section-kicker">J.E.D.A. growth</p><h2>Skill literasi yang terbentuk</h2></div><div class="skill-list dashboard-skills">${dashboardData.jeda.map(([label, score, note]) => `<div class="skill-row"><span>${escapeHtml(label)}<small>${escapeHtml(note)}</small></span><div class="skill-bar"><i style="width:${score}%"></i></div><b>${score}</b></div>`).join("")}</div></article>
+      </div>
+      <div class="dashboard-grid two compact">
+        <article class="dashboard-card"><div class="dash-card-head"><p class="section-kicker">Explainability engagement</p><h2>Apakah pengguna belajar dari clue?</h2></div><div class="explain-grid">${dashboardData.explainability.map(([label, value]) => `<div><strong>${value}%</strong><span>${escapeHtml(label)}</span></div>`).join("")}</div></article>
+        <article class="dashboard-card"><div class="dash-card-head"><p class="section-kicker">Workshop insight</p><h2>Ringkasan untuk kelas/komunitas</h2><p>Contoh simulasi sesi literasi digital berbasis skenario QR Pembayaran.</p></div><div class="workshop-summary"><span>Peserta 32</span><span>47% langsung scan sebelum latihan</span><span>81% cek kasir/penerima sesudah latihan</span></div></article>
+      </div>
+      <article class="dashboard-card scenario-dashboard"><div class="dash-card-head"><p class="section-kicker">Scenario performance</p><h2>Skenario yang paling berguna untuk latihan</h2></div><div class="scenario-table"><div class="table-head"><span>Skenario</span><span>Completion</span><span>Risk shift</span><span>Common mistake</span></div>${dashboardData.scenarios.map(([name, completion, shift, mistake]) => `<div><span>${escapeHtml(name)}</span><b>${escapeHtml(completion)}</b><b>${escapeHtml(shift)}</b><span>${escapeHtml(mistake)}</span></div>`).join("")}</div></article>
+    </div></section>`;
+}
+
 function trainingPage() {
   return `<section class="page-hero"><div class="page-shell"><p class="eyebrow">Latihan Hadang</p><h1>Latih Nalar Sebelum Situasi Nyata Datang.</h1><p>Hadapi simulasi manipulasi digital yang dekat dengan kehidupan sehari-hari. Setiap skenario berlangsung sekitar dua menit.</p></div></section>
     <section class="section"><div class="page-shell">
@@ -584,14 +809,14 @@ function howPage() {
     ["Human Final", "Bandingkan penalaranmu, sinyal AI, dan bukti yang independen."],
     ["Reflect & Learn", "Lihat perubahan keputusan dan pola berpikir yang telah dilatih."],
   ];
-  return `<section class="page-hero"><div class="page-shell"><p class="eyebrow">Cara Kerja</p><h1>Bagaimana HADANGIN Bekerja?</h1><p>Menggabungkan psikologi, Media and Information Literacy, AI forensics, dan human judgment dalam satu alur reflektif.</p></div></section>
-    <section class="section section-white"><div class="page-shell"><div class="steps-grid">${steps.map(([title, text]) => `<article class="step-card"><h3>${title}</h3><p>${text}</p></article>`).join("")}</div></div></section>
+  return `<section class="page-hero"><div class="page-shell"><p class="eyebrow">Cara Kerja</p><h1>Bagaimana HADANGIN Bekerja?</h1><p>HADANGIN adalah Indonesian-localized prototype dari AI Context Guard Web: menggabungkan psikologi, Media and Information Literacy, AI forensics, dan human judgment dalam satu alur reflektif.</p></div></section>
+    <section class="section section-white"><div class="page-shell"><div class="context-bridge"><span>Proposal concept</span><strong>AI Context Guard Web</strong><i aria-hidden="true">&#8594;</i><span>Local experience</span><strong>HADANGIN + J.E.D.A.</strong></div><div class="steps-grid">${steps.map(([title, text]) => `<article class="step-card"><h3>${title}</h3><p>${text}</p></article>`).join("")}</div></div></section>
     <section class="section"><div class="page-shell"><div class="dark-band"><div class="section-header"><p class="section-kicker">Human-centered AI</p><h2>AI adalah Lensa, Bukan Hakim.</h2><p>Label “aman”, “hoaks”, atau “scam” dapat membantu, tetapi tidak otomatis membangun kemampuan menilai ketika teknologi tidak tersedia.</p></div><div class="dark-mini-grid"><article><h3>Detect</h3><p>AI membantu menemukan pola dan sinyal yang mungkin terlewat.</p></article><article><h3>Explain</h3><p>AI menjelaskan mengapa sinyal muncul dan menunjukkan batasnya.</p></article><article><h3>Question</h3><p>AI membantu pengguna tahu bukti apa yang perlu diverifikasi.</p></article></div><p class="dark-footer-line">Keputusan akhir tetap milik manusia.</p></div></div></section>`;
 }
 
 function aboutPage() {
-  return `<section class="page-hero"><div class="page-shell"><p class="eyebrow">Tentang Inisiatif</p><h1>Membangun Ketahanan terhadap Manipulasi Informasi Digital</h1><p>Inisiatif MIL dari Indonesia untuk membantu masyarakat berhenti, berpikir, memverifikasi, dan mengambil keputusan dengan lebih sadar.</p></div></section>
-    <section class="section section-white"><div class="page-shell"><div class="section-header"><p class="section-kicker">Masalah yang dihadapi</p><h2>Kesenjangan antara Informasi dan Tindakan</h2><p>Manipulasi digital sering berhasil bukan hanya karena terlihat meyakinkan, tetapi karena memanfaatkan urgency, fear, authority, trust, scarcity, atau emotional attachment.</p></div><div class="problem-flow"><div class="problem-node">INFORMASI</div><div class="problem-arrow">&#8594;</div><div class="problem-node pressure">TEKANAN PSIKOLOGIS</div><div class="problem-arrow">&#8594;</div><div class="problem-node risk">TINDAKAN IMPULSIF</div></div><div class="jeda-interrupt"><span class="jeda-badge">J.E.D.A.</span><p><strong>HADANGIN menyisipkan ruang berpikir.</strong><br>Informasi dihadang sebelum dapat bergerak menuju tindakan berisiko.</p></div></div></section>
+  return `<section class="page-hero"><div class="page-shell"><p class="eyebrow">Tentang Inisiatif</p><h1>AI Context Guard Web yang Dilokalkan Menjadi HADANGIN</h1><p>HADANGIN adalah prototipe lokal dari konsep AI Context Guard Web untuk Indonesia: web ringan yang membantu masyarakat berhenti, berpikir, memverifikasi, dan mengambil keputusan dengan lebih sadar.</p></div></section>
+    <section class="section section-white"><div class="page-shell"><div class="section-header"><p class="section-kicker">Masalah yang dihadapi</p><h2>Kesenjangan antara Informasi dan Tindakan</h2><p>Manipulasi digital sering berhasil bukan hanya karena terlihat meyakinkan, tetapi karena memanfaatkan urgency, fear, authority, trust, scarcity, atau emotional attachment.</p></div><div class="problem-flow"><div class="problem-node">INFORMASI</div><div class="problem-arrow">&#8594;</div><div class="problem-node pressure">TEKANAN PSIKOLOGIS</div><div class="problem-arrow">&#8594;</div><div class="problem-node risk">TINDAKAN IMPULSIF</div></div><div class="jeda-interrupt"><span class="jeda-badge">J.E.D.A.</span><p><strong>HADANGIN menyisipkan ruang berpikir.</strong><br>J.E.D.A. menerjemahkan prinsip proposal <em>Pause, Question, Check, Decide</em> ke pengalaman budaya hadang/gobak sodor agar informasi tertahan sebelum bergerak menuju tindakan berisiko.</p></div></div></section>
     <section class="section"><div class="page-shell"><div class="section-header"><p class="section-kicker">Prinsip produk</p><h2>Dibangun untuk memperkuat agensi manusia</h2></div><div class="principle-grid four"><article class="card principle-card"><h3>Accessible</h3><p>Mobile-first, hemat bandwidth, dan menggunakan bahasa yang sederhana.</p></article><article class="card principle-card"><h3>Reflective, Not Punitive</h3><p>Tidak mempermalukan pengguna ketika penilaian awalnya keliru.</p></article><article class="card principle-card"><h3>Human Agency</h3><p>AI mendukung keputusan, bukan mengambil alih keputusan.</p></article><article class="card principle-card"><h3>Locally Grounded</h3><p>Berangkat dari konteks digital Indonesia dengan prinsip yang dapat digunakan lintas budaya.</p></article></div></div></section>
     <section class="section section-dark"><div class="page-shell"><div class="section-header"><p class="section-kicker">Untuk siapa</p><h2>Literasi yang dekat dengan kehidupan digital sehari-hari</h2><p>Ditujukan bagi pengguna digital, anak muda, keluarga, komunitas, pendidik, organisasi pemuda, advokat MIL, peneliti, dan pemangku kebijakan.</p></div><div class="chip-row"><span class="chip chip-blue">Everyday Digital Users</span><span class="chip chip-blue">Youth &amp; Young Adults</span><span class="chip chip-blue">Family &amp; Community</span><span class="chip chip-terra">Educators</span><span class="chip chip-terra">MIL Advocates</span><span class="chip chip-terra">Researchers</span></div></div></section>`;
 }
