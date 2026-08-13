@@ -341,6 +341,7 @@ const state = {
   audioXaiMode: "voice",
   qrXaiMode: "risk",
   inFlow: false,
+  directDetection: false,
   stage: 2,
   hadangStep: 0,
   initialDecision: "",
@@ -409,6 +410,7 @@ function setActiveNav() {
 function resetFlow() {
   Object.assign(state, {
     inFlow: false,
+    directDetection: false,
     stage: 2,
     hadangStep: 0,
     initialDecision: "",
@@ -523,7 +525,7 @@ function verifyPage() {
         <div class="section-header center">
           <p class="section-kicker">AI Context Guard versi lokal</p>
           <h2>Periksa Informasi Mencurigakan</h2>
-          <p>Masukkan konten yang ingin kamu evaluasi. HADANGIN menjaga prinsip Human First: AI belum akan memberikan sinyal sampai kamu membentuk penilaian awal.</p>
+          <p>Masukkan konten yang ingin kamu evaluasi. Pilih Deteksi AI untuk hasil langsung, atau AI Plus untuk alur Human First dan latihan J.E.D.A.</p>
         </div>
         <div class="card tool-card">
           <div class="card-header">
@@ -538,7 +540,10 @@ function verifyPage() {
           </div>
           ${inputPane()}
           <div class="privacy-note">Konten hanya diproses di perangkat ini untuk kebutuhan simulasi dan tidak dikirim ke server.</div>
-          <div class="card-footer-action"><button class="button" data-action="start-check">Mulai Pemeriksaan <span aria-hidden="true">&#8594;</span></button></div>
+          <div class="check-mode-picker">
+            <div><strong>Pilih cara pemeriksaan</strong><span>Keduanya menggunakan Explainable AI. AI Plus menambahkan latihan penalaran dan permainan J.E.D.A.</span></div>
+            <div class="check-mode-actions"><button class="button button-secondary" data-action="direct-ai"><span class="mode-button-icon" aria-hidden="true">AI</span><span><strong>Deteksi AI</strong><small>Prediksi + XAI langsung</small></span></button><button class="button" data-action="start-check"><span class="mode-button-icon plus" aria-hidden="true">+</span><span><strong>AI Plus</strong><small>Human First + Game J.E.D.A.</small></span><i aria-hidden="true">&#8594;</i></button></div>
+          </div>
         </div>
       </div>
     </section>
@@ -599,6 +604,7 @@ function progress() {
 }
 
 function verificationFlow() {
+  if (state.directDetection) return directDetectionResult();
   let content = humanFirst();
   if (state.stage === 3) content = hadangFlow();
   if (state.stage === 4) content = aiLens();
@@ -975,6 +981,27 @@ function detectionPreviewContent(detection, previewText) {
   return `<div class="message-preview"><p>${escapeHtml(previewText)}</p></div>`;
 }
 
+function directDetectionResult() {
+  const profile = analysisProfile();
+  const detection = analysisDetection();
+  const arenaSignals = [
+    ["J", "Jeda", profile.aiNotices[0]?.[1] || "Tekanan perlu diperiksa", Math.min(96, profile.aiScore + 6), "amber"],
+    ["E", "Emosi", profile.aiNotices[1]?.[1] || "Respons emosional terdeteksi", Math.max(42, profile.aiScore - 9), "red"],
+    ["D", "Data", profile.aiNotices[2]?.[1] || "Bukti belum terkonfirmasi", Math.max(48, profile.aiScore - 4), "blue"],
+    ["A", "Aksi", profile.aiNotices[3]?.[1] || "Tindakan berisiko terdeteksi", Math.min(98, profile.aiScore + 3), "teal"],
+  ];
+  const verdict = profile.aiScore >= 80 ? "Risiko tinggi - verifikasi sebelum bertindak" : profile.aiScore >= 70 ? "Perlu verifikasi lebih lanjut" : "Sinyal sedang - periksa bukti resmi";
+  return `<section class="direct-detection-page"><div class="page-shell">
+    <div class="direct-result-topbar"><button class="button button-ghost button-small" type="button" data-action="back-to-input">&#8592; Ganti Konten</button><span>Mode Deteksi AI &middot; Simulasi Frontend</span><button class="button button-small" type="button" data-action="switch-to-plus">Lanjut AI Plus &#8594;</button></div>
+    <header class="direct-result-header"><div><p class="section-kicker">Hasil prediksi langsung</p><h1>AI menghadang empat sinyal sebelum tindakan.</h1><p>Hasil ini melewati latihan Human First dan game. Gunakan penjelasan XAI untuk menentukan apa yang masih perlu diverifikasi.</p></div><div class="direct-verdict"><span>${escapeHtml(detection.confidenceLabel)}</span><strong>${profile.aiScore}%</strong><p>${escapeHtml(verdict)}</p></div></header>
+    <section class="ai-court-board" aria-label="Papan sinyal J.E.D.A. hasil prediksi AI"><div class="court-entry"><span>INPUT</span><i></i></div><div class="court-track">${arenaSignals.map(([letter, name, detail, score, tone], index) => `<article class="court-signal ${tone}"><div class="court-line"></div><span class="court-letter">${letter}</span><div><small>GARIS 0${index + 1}</small><strong>${name}</strong><p>${escapeHtml(detail)}</p><div class="court-score"><i style="--score:${score}%"></i><b>${score}</b></div></div></article>`).join("")}</div><div class="court-gate"><span>AKSI</span><strong>${profile.aiScore >= 80 ? "TAHAN" : "CEK"}</strong></div></section>
+    ${detectionPanel(profile, detection)}
+    <div class="ai-notice-grid">${profile.aiNotices.map(([label, value]) => `<div class="signal-card"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div>`).join("")}</div>
+    <div class="ai-columns direct-ai-columns"><section class="info-panel unknown"><h3>Yang belum dapat dipastikan AI</h3><ul>${profile.unknowns.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section><section class="info-panel verify"><h3>Langkah verifikasi berikutnya</h3><ul>${profile.verification.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section></div>
+    <div class="direct-result-footer"><div><strong>Butuh penilaian yang lebih lengkap?</strong><p>Masuk ke AI Plus untuk membentuk penilaian awal, memainkan J.E.D.A., lalu membandingkannya dengan AI.</p></div><button class="button" type="button" data-action="switch-to-plus">Mulai AI Plus &#8594;</button></div>
+  </div></section>`;
+}
+
 function aiLens() {
   const profile = analysisProfile();
   const detection = analysisDetection();
@@ -1275,15 +1302,27 @@ document.addEventListener("click", (event) => {
     state.content = "";
     render();
     setTimeout(() => document.getElementById("verify-tool")?.scrollIntoView(), 0);
-  } else if (action === "start-check") {
+  } else if (action === "direct-ai" || action === "start-check") {
     const textarea = document.querySelector("#content-input");
     if (textarea?.value.trim()) state.content = textarea.value.trim();
     if (["image", "audio"].includes(state.inputType) && !state.fileName) return showToast("Pilih file terlebih dahulu.");
     if (state.inputType === "qr" && state.qrInputMode === "image" && !state.fileName) return showToast("Pilih gambar QR terlebih dahulu.");
     if (state.inputType === "qr" && state.qrInputMode === "link" && !state.content.trim().match(/^https?:\/\//i)) return showToast("Masukkan tautan yang valid, diawali http:// atau https://.");
     if (!state.content && !state.fileName) return showToast("Masukkan konten atau pilih file terlebih dahulu.");
+    state.directDetection = action === "direct-ai";
+    state.inFlow = true;
+    state.stage = state.directDetection ? 4 : 2;
+    render();
+  } else if (action === "back-to-input") {
+    state.inFlow = false;
+    state.directDetection = false;
+    render();
+    setTimeout(() => document.getElementById("verify-tool")?.scrollIntoView(), 0);
+  } else if (action === "switch-to-plus") {
+    state.directDetection = false;
     state.inFlow = true;
     state.stage = 2;
+    state.initialDecision = "";
     render();
   } else if (action === "cancel-flow") {
     resetFlow(); render();

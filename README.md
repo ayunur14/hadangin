@@ -63,6 +63,18 @@ Token informasi terus bergerak menuju tindakan. Menangkap token akan menambah
 skor dan membuka pertanyaan J.E.D.A., sedangkan token yang lolos mengurangi
 nyawa. Ronde diulang ketika tiga token berhasil lolos.
 
+## Dua Mode Pemeriksaan
+
+Setiap input teks, gambar, audio, QR, dan tautan menyediakan dua pilihan:
+
+- **Deteksi AI** menampilkan prediksi simulatif, papan sinyal J/E/D/A, confidence,
+  XAI, ketidakpastian, dan langkah verifikasi tanpa membuka game.
+- **AI Plus** menjalankan alur lengkap Human First, mini game J.E.D.A., AI Lens,
+  keputusan final, dan refleksi.
+
+Konten tetap tersimpan ketika pengguna berpindah dari hasil Deteksi AI menuju
+AI Plus.
+
 ## Positioning Proposal
 
 - **AI Context Guard Web** adalah konsep proposal: platform web ringan untuk
