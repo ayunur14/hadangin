@@ -52,6 +52,17 @@ Hero halaman Latihan Hadang memakai scene 3D prosedural dari
 Scene ini dapat diganti dengan model `.glb` final melalui `GLTFLoader` tanpa
 mengubah alur skenario pada `app.js`.
 
+## Mini Game Gobak Sodor 2D
+
+Arena pada alur verifikasi tidak membutuhkan Node.js atau library tambahan.
+Pengguna menggerakkan penjaga aktif dengan `W`/`S` atau tombol panah, lalu
+menekan `Spasi` untuk memperluas jangkauan hadang. Pada perangkat sentuh,
+gunakan tiga tombol kontrol yang tampil di arena.
+
+Token informasi terus bergerak menuju tindakan. Menangkap token akan menambah
+skor dan membuka pertanyaan J.E.D.A., sedangkan token yang lolos mengurangi
+nyawa. Ronde diulang ketika tiga token berhasil lolos.
+
 ## Positioning Proposal
 
 - **AI Context Guard Web** adalah konsep proposal: platform web ringan untuk

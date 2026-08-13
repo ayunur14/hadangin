@@ -138,6 +138,8 @@ async function main() {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await sleep(120);
   await click(cdp, '[data-action="enter-arena"]');
+  await evaluate(cdp, `(() => { arenaRuntime.guardY = arenaRuntime.y; arenaRuntime.x = arenaRuntime.guardLeft - .5; return true; })()`);
+  await sleep(220);
   await click(cdp, '[data-multi="pressure"]', "Darurat");
   await screenshot(cdp, "mobile-hadang.png");
   await click(cdp, '[data-action="hide-question"]');
@@ -153,11 +155,17 @@ async function main() {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await sleep(120);
   await click(cdp, '[data-action="hadang-next"]');
+  await evaluate(cdp, `(() => { arenaRuntime.guardY = arenaRuntime.y; arenaRuntime.x = arenaRuntime.guardLeft - .5; return true; })()`);
+  await sleep(220);
   await click(cdp, '[data-multi="emotion"]', "Takut");
   await click(cdp, '[data-select="neutral-impact"]', "Ya");
   await click(cdp, '[data-action="hadang-next"]');
+  await evaluate(cdp, `(() => { arenaRuntime.guardY = arenaRuntime.y; arenaRuntime.x = arenaRuntime.guardLeft - .5; return true; })()`);
+  await sleep(220);
   await click(cdp, '[data-select="evidence"]', "Telepon nomor ibu yang tersimpan");
   await click(cdp, '[data-action="hadang-next"]');
+  await evaluate(cdp, `(() => { arenaRuntime.guardY = arenaRuntime.y; arenaRuntime.x = arenaRuntime.guardLeft - .5; return true; })()`);
+  await sleep(220);
   await click(cdp, '[data-select="requested-action"]', "Transfer");
   await click(cdp, '[data-select="consequence"]', "Kehilangan uang");
   await click(cdp, '[data-select="safer-action"]', "Telepon nomor tersimpan");

@@ -358,6 +358,13 @@ const state = {
   priority: "",
   result: false,
   questionOpen: true,
+  gameScore: 0,
+  gameLives: 3,
+  gameCombo: 1,
+  gameCatches: 0,
+  gameRoundComplete: false,
+  gameOver: false,
+  guardY: 54,
   scenarioId: "family-emergency",
   aiWrong: false,
 };
@@ -419,6 +426,13 @@ function resetFlow() {
     priority: "",
     result: false,
     questionOpen: true,
+    gameScore: 0,
+    gameLives: 3,
+    gameCombo: 1,
+    gameCatches: 0,
+    gameRoundComplete: false,
+    gameOver: false,
+    guardY: 54,
     aiWrong: false,
   });
 }
@@ -429,6 +443,7 @@ function goToRoute(route) {
 }
 
 function render(options = {}) {
+  stopArenaGame();
   window.dispatchEvent(new CustomEvent("hadang:before-render"));
   const previousScroll = window.scrollY;
   const previousPanelScroll = document.querySelector(".game-question-panel")?.scrollTop || 0;
@@ -440,6 +455,7 @@ function render(options = {}) {
   else if (state.route === "about") app.innerHTML = aboutPage();
   else app.innerHTML = state.inFlow ? verificationFlow() : verifyPage();
   window.dispatchEvent(new CustomEvent("hadang:rendered", { detail: { route: state.route } }));
+  requestAnimationFrame(maybeStartArenaGame);
   document.body.classList.toggle("game-active", state.route === "verify" && state.inFlow && state.stage === 3);
   requestAnimationFrame(() => {
     if (options.preserveScroll) {
@@ -645,7 +661,7 @@ function hadangFlow() {
   return `<div class="hadang-play-layout fullscreen-play-layout">
     <div class="game-world fullscreen-game-world">
       ${arena()}
-      <div class="live-readout"><span class="live-dot"></span><div><small>STATUS ARENA</small><strong>Informasi tertahan di garis ${guardNames[state.hadangStep]}</strong></div><span class="risk-meter"><i></i><i></i><i></i></span></div>
+      <div class="live-readout"><span class="live-dot"></span><div><small>STATUS ARENA</small><strong data-game-status>${state.gameRoundComplete ? `Token tertangkap. Buka pertanyaan ${guardNames[state.hadangStep]}.` : `Gerakkan penjaga ${guardNames[state.hadangStep]} dan tangkap token.`}</strong></div><div class="game-live-stats"><span><small>SKOR</small><b data-game-score>${state.gameScore}</b></span><span><small>NYAWA</small><b data-game-lives>${"&#9829;".repeat(state.gameLives)}${"&#9825;".repeat(3 - state.gameLives)}</b></span></div></div>
       ${state.questionOpen ? `<div class="question-scrim" aria-hidden="true"></div>` : ""}
       ${state.questionOpen ? `<aside class="game-question-panel game-question-modal ${hasResponse ? "settled" : "entering"}" id="game-question-panel" role="dialog" aria-modal="false" aria-label="Pertanyaan penjaga ${guardNames[state.hadangStep]}">
         <div class="question-panel-top"><span>POS PENJAGA 0${state.hadangStep + 1}</span><span>${state.hadangStep + 1} / 4</span><button class="question-close" type="button" data-action="hide-question" aria-label="Tutup pertanyaan" title="Tutup pertanyaan">&times;</button></div>
@@ -661,8 +677,9 @@ function transitionScreen() {
     <div class="game-start-modal" role="dialog" aria-label="Misi Arena Hadang">
       <span class="start-level">MISI HADANGIN</span>
       <h2>Jangan biarkan informasi lolos menuju tindakan.</h2>
-      <p>Gerakkan empat penjaga J.E.D.A. dengan menjawab pertanyaan. Setiap jawaban menghentikan informasi di satu garis nalar.</p>
+      <p>Gerakkan penjaga aktif di garisnya, tangkap token informasi, lalu jawab pertanyaan J.E.D.A. Jangan biarkan tiga token lolos menuju tindakan.</p>
       <div class="start-rules"><span><b>J</b> Jeda</span><span><b>E</b> Emosi</span><span><b>D</b> Data</span><span><b>A</b> Aksi</span></div>
+      <div class="game-control-hint"><span><kbd>W</kbd><kbd>&uarr;</kbd> Naik</span><span><kbd>S</kbd><kbd>&darr;</kbd> Turun</span><span><kbd>Spasi</kbd> Hadang</span></div>
       <button class="button button-teal" data-action="enter-arena">Mulai Permainan <span aria-hidden="true">&#8594;</span></button>
     </div>
   </div>`;
@@ -683,19 +700,155 @@ function gameStage(step, intro = false) {
   const tokenPositions = [12, 31, 49, 67];
   const tokenLeft = intro ? 8 : tokenPositions[activeStep];
   const stageMessages = ["Kenali tekanan sebelum bergerak", "Pisahkan emosi dari isi pesan", "Cari bukti yang berdiri sendiri", "Ukur risiko sebelum bertindak"];
-  return `<div class="hadang-game-stage ${intro ? "intro-stage" : "arena-stage"}" style="--token-left:${tokenLeft}%" aria-label="Arena Gobak Sodor Hadang Nalar, garis aktif ${guards[activeStep][1]}">
+  return `<div class="hadang-game-stage ${intro ? "intro-stage" : "arena-stage interactive-arena"}" style="--token-left:${tokenLeft}%; --player-y:${state.guardY}%" tabindex="${intro ? "-1" : "0"}" aria-label="Arena Gobak Sodor Hadang Nalar, garis aktif ${guards[activeStep][1]}">
     <div class="game-stage-art" aria-hidden="true"></div>
     <div class="game-stage-shade" aria-hidden="true"></div>
     <div class="game-hud"><span class="hud-badge">LEVEL 01</span><span class="hud-status"><i></i>${intro ? "4 garis nalar" : `Garis ${activeStep + 1} dari 4`}</span></div>
     <div class="incoming-zone"><span>MASUK</span></div>
     ${guards.map(([letter, name, left], index) => {
       const status = index < activeStep && !intro ? "done" : index === activeStep ? "active" : "locked";
-      return `<span class="checkpoint-line ${status}" style="--guard-left:${left}%" aria-hidden="true"></span><button class="guard-marker ${status}" style="--guard-left:${left}%" type="button" ${status === "active" ? 'data-action="focus-question"' : 'tabindex="-1"'} aria-label="Penjaga ${name}, ${status === "done" ? "selesai" : status === "active" ? "aktif" : "terkunci"}"><b>${letter}</b><span>${name}</span>${status === "done" ? "<i>&#10003;</i>" : ""}</button>`;
+      return `<span class="checkpoint-line ${status}" style="--guard-left:${left}%" aria-hidden="true"></span><button class="guard-marker ${status} ${status === "active" && !intro ? "player-guard" : ""}" style="--guard-left:${left}%" type="button" ${status === "active" ? 'data-action="focus-question"' : 'tabindex="-1"'} aria-label="Penjaga ${name}, ${status === "done" ? "selesai" : status === "active" ? "aktif" : "terkunci"}"><b>${letter}</b><span>${name}</span>${status === "done" ? "<i>&#10003;</i>" : ""}</button>`;
     }).join("")}
-    <div class="info-runner ${intro ? "is-running" : ""}"><span class="runner-card"><i></i><i></i><i></i></span><strong>INFO</strong><small>mencurigakan</small></div>
+    <div class="info-runner ${intro ? "is-running" : "game-token"}" data-game-token><span class="runner-card"><i></i><i></i><i></i></span><strong>INFO</strong><small data-token-kind>${intro ? "mencurigakan" : "pesan mendesak"}</small></div>
     <div class="action-gate"><span>TINDAKAN</span><small>Jangan biarkan lolos</small></div>
-    <div class="game-mission-bar"><span>${intro ? "Informasi bergerak menuju aksi" : stageMessages[activeStep]}</span><div class="mission-pips">${guards.map((_, index) => `<i class="${index < activeStep && !intro ? "done" : index === activeStep ? "active" : ""}"></i>`).join("")}</div></div>
+    ${intro ? "" : `<div class="arena-controls" aria-label="Kontrol sentuh"><button type="button" data-game-control="up" aria-label="Gerak naik">&#9650;</button><button type="button" data-game-control="block" aria-label="Hadang token">HADANG</button><button type="button" data-game-control="down" aria-label="Gerak turun">&#9660;</button></div>`}
+    <div class="game-mission-bar"><span>${intro ? "Informasi bergerak menuju aksi" : stageMessages[activeStep]}${intro ? "" : " · W/S atau panah untuk bergerak"}</span><div class="mission-pips">${guards.map((_, index) => `<i class="${index < activeStep && !intro ? "done" : index === activeStep ? "active" : ""}"></i>`).join("")}</div></div>
+    ${!intro && state.gameOver ? `<div class="game-over-panel"><span>MISI GAGAL</span><strong>Tiga informasi lolos.</strong><p>Ulangi ronde dan jaga garis ${guards[activeStep][1]}.</p><button class="button button-teal" type="button" data-action="retry-round">Ulangi Ronde</button></div>` : ""}
   </div>`;
+}
+
+let arenaRuntime = null;
+const arenaKeys = new Set();
+
+function stopArenaGame() {
+  if (!arenaRuntime) return;
+  cancelAnimationFrame(arenaRuntime.frame);
+  arenaRuntime = null;
+  arenaKeys.clear();
+}
+
+function maybeStartArenaGame() {
+  const stage = document.querySelector(".arena-stage.interactive-arena");
+  if (!stage || state.questionOpen || state.gameRoundComplete || state.gameOver) return;
+  startArenaGame(stage);
+}
+
+function startArenaGame(stage) {
+  stopArenaGame();
+  const guardLeft = [22, 40, 58, 76][state.hadangStep];
+  const tokenKinds = ["pesan mendesak", "tautan palsu", "QR mencurigakan", "voice note", "klaim viral"];
+  const spawnIndex = state.gameCatches + (3 - state.gameLives) + state.hadangStep;
+  const tokenY = [36, 66, 43, 62, 32, 57][spawnIndex % 6];
+  const runtime = {
+    stage,
+    token: stage.querySelector("[data-game-token]"),
+    guard: stage.querySelector(".player-guard"),
+    x: Math.max(6, guardLeft - 17),
+    y: tokenY,
+    guardY: Math.min(70, Math.max(31, state.guardY)),
+    guardLeft,
+    speed: 7.3 + state.hadangStep * 0.65,
+    blockingUntil: 0,
+    lastTime: performance.now(),
+    frame: 0,
+  };
+  arenaRuntime = runtime;
+  runtime.token?.classList.remove("caught", "escaped");
+  runtime.guard?.classList.remove("caught-token", "is-blocking");
+  const kind = tokenKinds[spawnIndex % tokenKinds.length];
+  runtime.token?.querySelector("[data-token-kind]")?.replaceChildren(kind);
+  stage.classList.add("game-running");
+  stage.focus({ preventScroll: true });
+
+  const tick = (time) => {
+    if (arenaRuntime !== runtime || !runtime.token || !runtime.guard) return;
+    const delta = Math.min((time - runtime.lastTime) / 1000, 0.05);
+    runtime.lastTime = time;
+    const direction = (arenaKeys.has("arrowdown") || arenaKeys.has("s") ? 1 : 0) - (arenaKeys.has("arrowup") || arenaKeys.has("w") ? 1 : 0);
+    runtime.guardY = Math.min(70, Math.max(31, runtime.guardY + direction * 38 * delta));
+    runtime.x += runtime.speed * delta;
+    runtime.guard.style.top = `${runtime.guardY}%`;
+    runtime.token.style.left = `${runtime.x}%`;
+    runtime.token.style.top = `${runtime.y}%`;
+    runtime.guard.classList.toggle("is-blocking", time < runtime.blockingUntil);
+
+    const blockRange = time < runtime.blockingUntil ? 14 : 8;
+    const atLine = Math.abs(runtime.x - runtime.guardLeft) < 1.25;
+    const aligned = Math.abs(runtime.y - runtime.guardY) < blockRange;
+    if (atLine && aligned) {
+      catchInformation(runtime);
+      return;
+    }
+    if (runtime.x > runtime.guardLeft + 8) {
+      missInformation(runtime);
+      return;
+    }
+    runtime.frame = requestAnimationFrame(tick);
+  };
+  runtime.frame = requestAnimationFrame(tick);
+}
+
+function blockInformation() {
+  if (!arenaRuntime) return;
+  arenaRuntime.blockingUntil = performance.now() + 650;
+  arenaRuntime.guard?.classList.add("is-blocking");
+}
+
+function catchInformation(runtime) {
+  if (arenaRuntime !== runtime) return;
+  cancelAnimationFrame(runtime.frame);
+  runtime.token.classList.add("caught");
+  runtime.guard.classList.add("caught-token");
+  state.guardY = runtime.guardY;
+  state.gameCatches += 1;
+  state.gameScore += 100 * state.gameCombo;
+  state.gameCombo = Math.min(4, state.gameCombo + 1);
+  state.gameRoundComplete = true;
+  updateArenaHud(`Token tertangkap di garis ${["Jeda", "Emosi", "Data", "Aksi"][state.hadangStep]}!`, true);
+  arenaRuntime = null;
+  setTimeout(() => {
+    state.questionOpen = true;
+    render({ preserveScroll: true });
+  }, 520);
+}
+
+function missInformation(runtime) {
+  if (arenaRuntime !== runtime) return;
+  cancelAnimationFrame(runtime.frame);
+  runtime.token.classList.add("escaped");
+  state.guardY = runtime.guardY;
+  state.gameLives = Math.max(0, state.gameLives - 1);
+  state.gameCombo = 1;
+  updateArenaHud("Informasi lolos. Bersiap untuk token berikutnya.", false);
+  arenaRuntime = null;
+  if (state.gameLives === 0) {
+    state.gameOver = true;
+    setTimeout(() => render({ preserveScroll: true }), 480);
+  } else {
+    setTimeout(() => maybeStartArenaGame(), 620);
+  }
+}
+
+function updateArenaHud(message, caught) {
+  const status = document.querySelector("[data-game-status]");
+  const score = document.querySelector("[data-game-score]");
+  const lives = document.querySelector("[data-game-lives]");
+  if (status) status.textContent = message;
+  if (score) score.textContent = state.gameScore;
+  if (lives) lives.innerHTML = `${"&#9829;".repeat(state.gameLives)}${"&#9825;".repeat(3 - state.gameLives)}`;
+  document.querySelector(".live-readout")?.classList.toggle("catch-success", caught);
+}
+
+function resetArenaRound(resetLives = false) {
+  stopArenaGame();
+  if (resetLives) {
+    state.gameLives = 3;
+    state.gameCombo = 1;
+  }
+  state.gameRoundComplete = false;
+  state.gameOver = false;
+  state.questionOpen = false;
+  state.guardY = 54;
 }
 
 function hadangStepContent() {
@@ -1067,6 +1220,15 @@ document.addEventListener("click", (event) => {
     updateMulti(target.dataset.multi, target.dataset.value);
     return;
   }
+  if (target.dataset.gameControl) {
+    const control = target.dataset.gameControl;
+    if (control === "block") blockInformation();
+    else if (arenaRuntime) {
+      arenaRuntime.guardY = Math.min(70, Math.max(31, arenaRuntime.guardY + (control === "down" ? 9 : -9)));
+      state.guardY = arenaRuntime.guardY;
+    }
+    return;
+  }
   if (target.dataset.scenario) {
     startScenario(target.dataset.scenario);
     return;
@@ -1075,6 +1237,11 @@ document.addEventListener("click", (event) => {
   const action = target.dataset.action;
   if (!action) return;
   if (action === "focus-question") {
+    if (!state.gameRoundComplete && state.hadangStep >= 0) {
+      blockInformation();
+      showToast("Tangkap token informasi terlebih dahulu.");
+      return;
+    }
     if (!state.questionOpen) {
       state.questionOpen = true;
       render({ preserveScroll: true });
@@ -1086,6 +1253,9 @@ document.addEventListener("click", (event) => {
     setTimeout(() => panel?.classList.remove("panel-attention"), 600);
   } else if (action === "hide-question") {
     state.questionOpen = false;
+    render({ preserveScroll: true });
+  } else if (action === "retry-round") {
+    resetArenaRound(true);
     render({ preserveScroll: true });
   } else if (action === "remove-image") {
     state.fileName = "";
@@ -1120,16 +1290,29 @@ document.addEventListener("click", (event) => {
   } else if (action === "lock-initial") {
     state.stage = 3; state.hadangStep = -1; render();
   } else if (action === "enter-arena") {
-    state.hadangStep = 0; state.questionOpen = true; render();
+    state.hadangStep = 0;
+    state.gameScore = 0;
+    state.gameLives = 3;
+    state.gameCombo = 1;
+    state.gameCatches = 0;
+    resetArenaRound(false);
+    render();
   } else if (action === "hadang-back") {
-    if (state.hadangStep > 0) state.hadangStep -= 1;
+    if (state.hadangStep > 0) {
+      state.hadangStep -= 1;
+      resetArenaRound(false);
+      state.questionOpen = true;
+    }
     else state.hadangStep = -1;
-    state.questionOpen = true;
+    if (state.hadangStep === -1) state.questionOpen = true;
     render();
   } else if (action === "hadang-next") {
-    if (state.hadangStep < 3) state.hadangStep += 1;
+    if (state.hadangStep < 3) {
+      state.hadangStep += 1;
+      resetArenaRound(false);
+    }
     else state.stage = 4;
-    state.questionOpen = true;
+    if (state.stage !== 4) state.questionOpen = false;
     render();
   } else if (action === "back-to-hadang") {
     state.stage = 3; state.hadangStep = 3; render();
@@ -1235,6 +1418,29 @@ document.addEventListener("pointerout", (event) => {
   if (!stage || stage.contains(event.relatedTarget)) return;
   stage.style.setProperty("--scene-x", "0px");
   stage.style.setProperty("--scene-y", "0px");
+});
+
+document.addEventListener("keydown", (event) => {
+  if (!arenaRuntime || !["ArrowUp", "ArrowDown", "w", "W", "s", "S", " "].includes(event.key)) return;
+  event.preventDefault();
+  if (event.key === " ") blockInformation();
+  else arenaKeys.add(event.key.toLowerCase());
+});
+
+document.addEventListener("keyup", (event) => {
+  arenaKeys.delete(event.key.toLowerCase());
+});
+
+document.addEventListener("pointerdown", (event) => {
+  const control = event.target.closest?.("[data-game-control]")?.dataset.gameControl;
+  if (!arenaRuntime || !["up", "down"].includes(control)) return;
+  event.preventDefault();
+  arenaKeys.add(control === "up" ? "arrowup" : "arrowdown");
+});
+
+document.addEventListener("pointerup", () => {
+  arenaKeys.delete("arrowup");
+  arenaKeys.delete("arrowdown");
 });
 
 window.addEventListener("hashchange", render);
