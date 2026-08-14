@@ -582,7 +582,7 @@ function verifyPage() {
         <div class="card tool-card">
           <div class="card-header">
             <div><h3>Pilih jenis konten</h3><p>Gunakan contoh yang tersedia atau masukkan kontenmu sendiri.</p></div>
-            <span class="status-pill">Simulasi frontend</span>
+            <span class="status-pill">Pemrosesan lokal</span>
           </div>
           <div class="tabs" role="tablist" aria-label="Jenis konten">
             ${tabButton("image", "Gambar / Screenshot")}
@@ -996,7 +996,7 @@ function detectionPanel(profile, detection) {
           ${previewContent}
           ${isImageAnalysis ? `<div class="xai-legend"><span><i></i>${state.xaiMode === "heatmap" ? "Pengaruh tinggi" : "Area perhatian model"}</span><small>Simulasi XAI</small></div>` : ""}
         </div>
-        <p class="preview-disclaimer">Simulasi frontend: highlight menunjukkan cara hasil AI dapat dijelaskan, bukan bukti final.</p>
+        <p class="preview-disclaimer">Highlight menunjukkan area yang memengaruhi hasil analisis dan bukan merupakan bukti final.</p>
       </div>
       <div class="detection-explain">
         <p class="detection-summary">${escapeHtml(detection.summary)}</p>
@@ -1071,7 +1071,7 @@ function directDetectionResult() {
   ];
   const verdict = profile.aiScore >= 80 ? "Risiko tinggi - verifikasi sebelum bertindak" : profile.aiScore >= 70 ? "Perlu verifikasi lebih lanjut" : "Sinyal sedang - periksa bukti resmi";
   return `<section class="direct-detection-page"><div class="page-shell">
-    <div class="direct-result-topbar"><button class="button button-ghost button-small" type="button" data-action="back-to-input">&#8592; Ganti Konten</button><span>Mode Deteksi AI &middot; Simulasi Frontend</span><button class="button button-small" type="button" data-action="switch-to-plus">Lanjut AI Plus &#8594;</button></div>
+    <div class="direct-result-topbar"><button class="button button-ghost button-small" type="button" data-action="back-to-input">&#8592; Ganti Konten</button><span>Mode Deteksi AI &middot; Explainable AI</span><button class="button button-small" type="button" data-action="switch-to-plus">Lanjut AI Plus &#8594;</button></div>
     <header class="direct-result-header"><div><p class="section-kicker">Hasil prediksi langsung</p><h1>AI menghadang empat sinyal sebelum tindakan.</h1><p>Hasil ini melewati latihan Human First dan game. Gunakan penjelasan XAI untuk menentukan apa yang masih perlu diverifikasi.</p></div><div class="direct-verdict"><span>${escapeHtml(detection.confidenceLabel)}</span><strong>${profile.aiScore}%</strong><p>${escapeHtml(verdict)}</p></div></header>
     <section class="ai-court-board" aria-label="Papan sinyal J.E.D.A. hasil prediksi AI"><div class="court-entry"><span>INPUT</span><i></i></div><div class="court-track">${arenaSignals.map(([letter, name, detail, score, tone], index) => `<article class="court-signal ${tone}"><div class="court-line"></div><span class="court-letter">${letter}</span><div><small>GARIS 0${index + 1}</small><strong>${name}</strong><p>${escapeHtml(detail)}</p><div class="court-score"><i style="--score:${score}%"></i><b>${score}</b></div></div></article>`).join("")}</div><div class="court-gate"><span>AKSI</span><strong>${profile.aiScore >= 80 ? "TAHAN" : "CEK"}</strong></div></section>
     ${detectionPanel(profile, detection)}
