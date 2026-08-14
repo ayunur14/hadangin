@@ -241,6 +241,9 @@ p { color: var(--secondary); }
 .check-mode-picker > div:first-child span { margin-top: 5px; color: var(--secondary); font-size: .7rem; line-height: 1.5; }
 .check-mode-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .check-mode-actions .button { min-height: 62px; justify-content: flex-start; padding: 9px 14px; text-align: left; }
+.check-mode-actions .button-secondary { color: #526173; background: #e9edf2; border-color: #d2dae4; }
+.check-mode-actions .button-secondary:hover { color: #334155; background: #dde3ea; border-color: #c4ceda; }
+.check-mode-actions .button-secondary .mode-button-icon { color: #64748b; background: #f4f6f8; border-color: #cbd5e1; }
 .check-mode-actions .button > span:nth-child(2) { display: flex; min-width: 0; flex-direction: column; }
 .check-mode-actions .button strong { font-size: .82rem; }
 .check-mode-actions .button small { margin-top: 2px; color: inherit; font-size: .62rem; font-weight: 500; opacity: .76; }
