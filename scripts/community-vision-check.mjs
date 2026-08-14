@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const appUrl = process.env.HADANG_APP_URL || "http://127.0.0.1:3000/";
 const profile = mkdtempSync(resolve(tmpdir(), "hadang-vision-"));
-const port = 9600 + (process.pid % 200);
+const port = 22000 + Math.floor(Math.random() * 8000);
 const consoleMessages = [];
 const chrome = spawn(chromePath, [
   "--headless=new",
@@ -108,8 +108,9 @@ async function main() {
     return module.FilesetResolver.forVisionTasks('/mediapipe');
   })()`);
   await evaluate(cdp, `(() => {
+    document.querySelector('[data-community-mode="vision"]').click();
     document.querySelector('[data-action="start-community"]').click();
-    document.querySelector('[data-action="community-next"]').click();
+    document.querySelector('[data-action="community-vision-next"]').click();
     document.querySelector('[data-action="toggle-community-camera"]').click();
   })()`);
 

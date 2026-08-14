@@ -117,22 +117,28 @@ proposal. Setiap skenario memiliki panel explainable detection yang berisi:
 Simulasi ini menjaga prinsip **AI Second**: AI membantu menunjukkan apa yang
 perlu diperiksa, tetapi keputusan akhir tetap berada pada manusia.
 
-## Ruang Komunitas & Computer Vision
+## Arena Komunitas Offline
 
-Route `#/community` menyediakan sesi fasilitasi kelompok dengan voting awal,
-empat pos J.E.D.A., voting akhir, dan debrief. Fasilitator dapat memilih dua
-cara bermain:
+Route `#/community` menjadikan website sebagai game master untuk permainan
+fisik dua tim. Tim Arus membawa Token Informasi melewati empat garis, sedangkan
+Tim Hadang menyelesaikan tantangan Jeda, Emosi, Data, dan Aksi sebelum timer
+habis. Fasilitator mengendalikan kasus, timer, jawaban, skor, reveal AI Lens,
+voting awal/akhir, dan pergantian peran melalui satu laptop atau proyektor.
 
-- **Arena Kamera** memakai MediaPipe Pose Landmarker untuk membaca landmark
-  tubuh langsung di browser. Pemain membahas garis aktif lalu mengangkat kedua
-  tangan selama satu detik untuk melakukan aksi Hadang.
-- **Fasilitator Manual** menyelesaikan setiap garis dengan tombol dan tetap
-  tersedia sebagai fallback atau pilihan aksesibilitas.
+Tahap persiapan menyediakan denah lapangan, pembagian peran, checklist, gambar
+kit fisik, panduan sesi, serta halaman cetak berisi kartu J.E.D.A., kartu
+keputusan, kartu taktik, Token Informasi, dan penanda garis. Permainan tidak
+memerlukan kamera, login peserta, atau backend real-time.
 
-Video kamera tidak direkam atau dikirim ke server. Model pose dan runtime WASM
-disimpan di `public/models` dan `public/mediapipe`, sehingga deployment Netlify
-tidak bergantung pada CDN saat Computer Vision dimulai. Kamera hanya tersedia
-pada `localhost` atau situs HTTPS dan selalu meminta izin pengguna.
+### Arena Kamera AI (Beta)
+
+Computer Vision tetap tersedia sebagai mode alternatif di setup Komunitas.
+Satu penjaga berdiri di depan webcam, kelompok membahas pertanyaan yang sesuai
+dengan paket kasus, lalu penjaga mengangkat kedua tangan selama satu detik untuk
+menyelesaikan garis J.E.D.A. MediaPipe membaca titik pose langsung di browser;
+video tidak direkam atau dikirim ke server. Tombol manual tetap tersedia sebagai
+fallback aksesibilitas. AI hanya memvalidasi pose, sedangkan kualitas alasan,
+bukti, dan keputusan tetap dinilai oleh peserta dan fasilitator.
 
 ## HADANGIN Insight Dashboard
 
@@ -162,7 +168,8 @@ ini masih menggunakan data simulatif untuk kebutuhan demo, dengan bagian utama:
 - Popup pertanyaan interaktif yang dapat ditutup dan dibuka kembali.
 - AI Lens dengan sinyal manipulasi, ketidakpastian, rekomendasi verifikasi, confidence score, dan explainable visual highlight simulation.
 - HADANGIN Insight Dashboard untuk simulasi impact measurement, pattern map, dan workshop insight.
-- Ruang Komunitas dengan Arena Kamera AI, skeleton XAI, pose Hadang, dan kontrol manual.
+- Arena Komunitas Offline dua tim dengan timer, skor, kartu cetak, dan website sebagai game master.
+- Arena Kamera AI berbasis MediaPipe dengan pemrosesan pose lokal dan fallback manual.
 - Perbandingan keputusan sebelum dan sesudah pemeriksaan.
 - Critical Thinking Snapshot sebagai hasil refleksi.
 - Tujuh skenario latihan manipulasi digital.
