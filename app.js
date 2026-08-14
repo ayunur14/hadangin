@@ -8,6 +8,10 @@ const scenarios = [
     title: "Pesan Keluarga Darurat",
     description: "Nomor baru mengaku sebagai keluarga dan meminta transfer segera.",
     triggers: ["Urgency", "Fear", "Attachment"],
+    inputType: "text",
+    format: "Teks / Pesan",
+    source: "Pesan WhatsApp dari nomor baru",
+    mission: "Pastikan identitas pengirim sebelum merespons permintaan transfer.",
     content: DEFAULT_MESSAGE,
     featured: true,
   },
@@ -17,6 +21,11 @@ const scenarios = [
     title: "QR Pembayaran",
     description: "QR pengganti ditempel di atas kode pembayaran resmi sebuah merchant.",
     triggers: ["Trust", "Habit", "Convenience"],
+    inputType: "qr",
+    inputMode: "image",
+    format: "Gambar QR",
+    source: "Foto QR di meja kasir",
+    mission: "Periksa pemilik QR dan nama penerima sebelum pembayaran diproses.",
     content: "QR di meja kasir sedang bermasalah. Scan kode baru ini agar pembayaran langsung diproses.",
   },
   {
@@ -25,6 +34,10 @@ const scenarios = [
     title: "Lowongan Kerja",
     description: "Tawaran kerja bergaji tinggi meminta deposit untuk proses administrasi.",
     triggers: ["Hope", "Authority", "Scarcity"],
+    inputType: "image",
+    format: "Screenshot",
+    source: "Poster lowongan dari grup percakapan",
+    mission: "Bedakan tampilan profesional dari bukti rekrutmen yang dapat diverifikasi.",
     content: "Selamat, Anda lolos seleksi awal. Transfer biaya administrasi hari ini untuk mengamankan posisi.",
   },
   {
@@ -33,7 +46,13 @@ const scenarios = [
     title: "Pesan Bank",
     description: "Pesan mengancam pemblokiran rekening dan mengarahkan ke sebuah tautan.",
     triggers: ["Fear", "Authority", "Urgency"],
+    inputType: "qr",
+    inputMode: "link",
+    format: "Tautan",
+    source: "SMS mengatasnamakan bank",
+    mission: "Baca struktur alamat tanpa membuka tautan dan cocokkan dengan kanal bank resmi.",
     content: "Rekening Anda akan diblokir dalam 30 menit. Klik tautan ini untuk verifikasi identitas.",
+    payload: "https://secure-verifikasi-akun.example/login?session=30min",
   },
   {
     id: "viral-info",
@@ -41,6 +60,10 @@ const scenarios = [
     title: "Informasi Viral",
     description: "Unggahan emosional mendorong pengguna menyebarkan klaim tanpa sumber.",
     triggers: ["Anger", "Social Pressure"],
+    inputType: "image",
+    format: "Screenshot",
+    source: "Tangkapan layar unggahan viral",
+    mission: "Temukan sumber primer, tanggal, dan konteks sebelum membagikan ulang.",
     content: "Mereka tidak ingin kamu tahu fakta ini. Sebarkan sekarang sebelum unggahan dihapus!",
   },
   {
@@ -49,6 +72,10 @@ const scenarios = [
     title: "Media Manipulatif",
     description: "Video tokoh publik tampak nyata, tetapi konteks dan sumbernya tidak jelas.",
     triggers: ["Realism", "Authority"],
+    inputType: "image",
+    format: "Frame Video",
+    source: "Potongan video dari akun tidak dikenal",
+    mission: "Periksa sinkronisasi visual, sumber asli, dan legalitas ajakan investasi.",
     content: "Video eksklusif tokoh publik membagikan peluang investasi yang hanya tersedia hari ini.",
   },
   {
@@ -57,8 +84,24 @@ const scenarios = [
     title: "AI Bisa Salah",
     description: "Bukti resmi dapat lebih kuat daripada sinyal AI. Latih keberanian untuk tidak setuju.",
     triggers: ["Automation Bias"],
+    inputType: "text",
+    format: "Notifikasi Resmi",
+    source: "Pemberitahuan dalam aplikasi layanan",
+    mission: "Bandingkan skor AI dengan bukti resmi dan kenali kemungkinan false positive.",
     content: "Pemberitahuan resmi: jadwal layanan berubah. Periksa pembaruan pada aplikasi resmi.",
     aiWrong: true,
+  },
+  {
+    id: "audio-impersonation",
+    no: "08",
+    title: "Voice Note Keluarga",
+    description: "Rekaman suara mirip anggota keluarga meminta transfer dan melarang kamu menelepon.",
+    triggers: ["Voice Clone", "Urgency", "Fear"],
+    inputType: "audio",
+    format: "Voice Note",
+    source: "Rekaman 18 detik dari nomor baru",
+    mission: "Nilai pola suara, isi permintaan, dan lakukan konfirmasi melalui kanal lain.",
+    content: "Nak, ini Mama. Nomor Mama sedang bermasalah. Tolong transfer sekarang dan jangan telepon dulu.",
   },
 ];
 
@@ -308,6 +351,7 @@ function activeDetection() {
 }
 
 function analysisProfile() {
+  if (state.trainingScenario) return activeProfile();
   if (state.inputType === "image") return scenarioProfiles["manipulated-media"];
   if (state.inputType === "audio") return scenarioProfiles["audio-impersonation"];
   if (state.inputType === "qr") return scenarioProfiles[state.qrInputMode === "image" ? "qr-payment" : "bank-message"];
@@ -315,6 +359,7 @@ function analysisProfile() {
 }
 
 function analysisDetection() {
+  if (state.trainingScenario) return activeDetection();
   if (state.inputType === "image") return detectionProfiles["manipulated-media"];
   if (state.inputType === "audio") return detectionProfiles["audio-impersonation"];
   if (state.inputType === "qr") return detectionProfiles[state.qrInputMode === "image" ? "qr-payment" : "bank-message"];
@@ -327,6 +372,10 @@ function safeHostname(value) {
   } catch {
     return "domain-belum-terbaca";
   }
+}
+
+function currentScenario() {
+  return scenarios.find((item) => item.id === state.scenarioId) || scenarios[0];
 }
 
 const state = {
@@ -369,6 +418,8 @@ const state = {
   guardY: 54,
   scenarioId: "family-emergency",
   aiWrong: false,
+  trainingScenario: false,
+  casePrompt: "",
 };
 
 const app = document.querySelector("#app");
@@ -617,8 +668,9 @@ function verificationFlow() {
 
 function humanFirst() {
   const decisions = ["Lanjut", "Verifikasi Dulu", "Berhenti", "Belum Yakin"];
+  const scenario = currentScenario();
   return `<div class="flow-card">
-    <header><p class="section-kicker">Human First</p><h2>Sebelum AI Membantu...</h2><p>Kami ingin tahu bagaimana kamu membaca situasi ini terlebih dahulu.</p></header>
+    <header><p class="section-kicker">Human First</p><h2>Sebelum AI Membantu...</h2><p>Kami ingin tahu bagaimana kamu membaca situasi ini terlebih dahulu.</p>${state.trainingScenario ? `<div class="active-case-ribbon"><span>Kasus ${scenario.no}</span><strong>${escapeHtml(scenario.title)}</strong><i>${escapeHtml(scenario.format)}</i></div>` : ""}</header>
     ${inspectionContext()}
     <div class="question">
       <span class="question-label">Apa respons pertamamu jika ini terjadi di dunia nyata?</span>
@@ -634,6 +686,7 @@ function humanFirst() {
 }
 
 function inspectionContext() {
+  if (state.trainingScenario) return trainingScenarioContext(currentScenario());
   if (state.inputType === "image" && state.imageDataUrl) {
     return `<div class="human-image-context"><img src="${state.imageDataUrl}" alt="Gambar yang sedang diperiksa" /><div><span class="label">Gambar yang diperiksa</span><strong>${escapeHtml(state.fileName)}</strong><p>Amati konteks, sumber, detail visual, dan tindakan yang diminta sebelum melihat analisis AI.</p></div></div>`;
   }
@@ -647,6 +700,22 @@ function inspectionContext() {
     return `<div class="human-link-context"><span class="label">Tautan yang diperiksa</span><strong>${escapeHtml(safeHostname(state.content))}</strong><code>${escapeHtml(state.content)}</code><p>Jangan buka tautan dari panel ini. Nilai klaim pengirim dan cari kanal resmi secara mandiri.</p></div>`;
   }
   return `<div class="message-panel"><span class="label">Informasi yang diperiksa</span><blockquote>${escapeHtml(state.content || DEFAULT_MESSAGE)}</blockquote></div>`;
+}
+
+function trainingScenarioContext(scenario) {
+  if (scenario.inputType === "qr" && scenario.inputMode === "image") {
+    return `<div class="training-case-context"><div class="case-visual qr-case"><div class="qr-pattern" aria-label="Ilustrasi QR pembayaran"><span></span><span></span><span></span></div><i>STIKER BARU</i><small>MEJA KASIR</small></div><div class="case-copy"><span class="label">${escapeHtml(scenario.source)}</span><strong>QR pembayaran pengganti</strong><blockquote>${escapeHtml(scenario.content)}</blockquote><p>Amati posisi stiker dan pastikan nama penerima sebelum memindai.</p></div></div>`;
+  }
+  if (scenario.inputType === "qr") {
+    return `<div class="human-link-context"><span class="label">${escapeHtml(scenario.source)}</span><blockquote>${escapeHtml(scenario.content)}</blockquote><strong>${escapeHtml(safeHostname(state.content))}</strong><code>${escapeHtml(state.content)}</code><p>Alamat ditampilkan tanpa dibuka. Cocokkan dengan domain resmi melalui kanal independen.</p></div>`;
+  }
+  if (scenario.inputType === "audio") {
+    return `<div class="human-audio-context training-audio-context"><div><span class="label">${escapeHtml(scenario.source)}</span><strong>Voice note keluarga / 00:18</strong>${waveformBars(38, "human-wave")}<div class="audio-simulation-status"><i></i>Rekaman latihan siap dianalisis</div></div><div class="transcript-preview"><span>Transkrip kasus</span><p>"${escapeHtml(scenario.content)}"</p><small>Perhatikan larangan menelepon dan permintaan transfer mendesak.</small></div></div>`;
+  }
+  if (scenario.inputType === "image") {
+    return `<div class="training-case-context"><div class="case-visual ${scenario.id === "manipulated-media" ? "video-case" : "social-case"}">${scenario.id === "manipulated-media" ? `<div class="video-person"><span></span></div><b>LIVE</b><em>INVESTASI HANYA HARI INI</em>` : `<div class="social-avatar"></div><small>${scenario.id === "job-offer" ? "INFO KARIER" : "UNGGAHAN VIRAL"}</small><strong>${escapeHtml(scenario.content)}</strong><div class="social-stats"><span>12,8K</span><span>Bagikan</span></div>`}</div><div class="case-copy"><span class="label">${escapeHtml(scenario.source)}</span><strong>${escapeHtml(scenario.title)}</strong><blockquote>${escapeHtml(scenario.content)}</blockquote><p>${escapeHtml(scenario.mission)}</p></div></div>`;
+  }
+  return `<div class="message-panel training-message-context"><div class="message-meta"><span>${escapeHtml(scenario.source)}</span><i>${escapeHtml(scenario.format)}</i></div><span class="label">Informasi yang diperiksa</span><blockquote>${escapeHtml(scenario.content)}</blockquote><p>${escapeHtml(scenario.mission)}</p></div>`;
 }
 
 function confidenceSlider(id, value) {
@@ -904,26 +973,28 @@ function detectionPanel(profile, detection) {
   const previewText = state.content || DEFAULT_MESSAGE;
   const isUploadedImage = state.inputType === "image" && state.imageDataUrl;
   const isUploadedAudio = state.inputType === "audio" && state.audioDataUrl;
+  const isImageAnalysis = state.inputType === "image" && (isUploadedImage || state.trainingScenario);
+  const isAudioAnalysis = state.inputType === "audio" && (isUploadedAudio || state.trainingScenario);
   const isQrAnalysis = state.inputType === "qr";
   const dataset = detection.dataset || (isQrAnalysis
     ? { name: state.qrInputMode === "image" ? "QR Abuse Reference Set" : "URL Threat Pattern Set", size: state.qrInputMode === "image" ? "42.680 struktur QR" : "1,2 juta snapshot URL", matches: state.qrInputMode === "image" ? "19 pola tujuan serupa" : "63 pola domain serupa" }
     : null);
   let previewContent = `${detectionPreviewContent(detection, previewText)}${detection.highlights.map((item, index) => `<span class="red-box" style="--x:${item.x}%; --y:${item.y}%; --w:${item.w}%; --h:${item.h}%"><b>${index + 1}</b></span>`).join("")}`;
-  if (isUploadedImage) previewContent = `<div class="xai-image-stage"><img class="xai-source-image" src="${state.imageDataUrl}" alt="Gambar upload dengan penjelasan XAI" />${state.xaiMode === "heatmap" ? `<div class="xai-heatmap" aria-hidden="true">${detection.highlights.map((item) => `<span style="--hx:${item.x + item.w / 2}%; --hy:${item.y + item.h / 2}%; --hs:${Math.max(item.w, item.h) * 1.7}%"></span>`).join("")}</div>` : detection.highlights.map((item, index) => `<span class="red-box" style="--x:${item.x}%; --y:${item.y}%; --w:${item.w}%; --h:${item.h}%"><b>${index + 1}</b></span>`).join("")}</div>`;
-  if (isUploadedAudio) previewContent = audioAnalysisPreview();
+  if (isImageAnalysis) previewContent = `<div class="xai-image-stage">${isUploadedImage ? `<img class="xai-source-image" src="${state.imageDataUrl}" alt="Gambar upload dengan penjelasan XAI" />` : trainingDetectionVisual(currentScenario())}${state.xaiMode === "heatmap" ? `<div class="xai-heatmap" aria-hidden="true">${detection.highlights.map((item) => `<span style="--hx:${item.x + item.w / 2}%; --hy:${item.y + item.h / 2}%; --hs:${Math.max(item.w, item.h) * 1.7}%"></span>`).join("")}</div>` : detection.highlights.map((item, index) => `<span class="red-box" style="--x:${item.x}%; --y:${item.y}%; --w:${item.w}%; --h:${item.h}%"><b>${index + 1}</b></span>`).join("")}</div>`;
+  if (isAudioAnalysis) previewContent = audioAnalysisPreview();
   if (isQrAnalysis) previewContent = qrAnalysisPreview();
   return `<section class="detection-panel" aria-label="Explainable AI detection simulation">
     <div class="detection-header">
       <div><p class="section-kicker">Explainable detection</p><h3>${escapeHtml(detection.title)}</h3><p>${escapeHtml(detection.subtitle)}</p></div>
       <div class="confidence-badge"><span>${escapeHtml(detection.confidenceLabel)}</span><strong>${profile.aiScore}%</strong></div>
     </div>
-    ${analysisModeBar(isUploadedImage, isUploadedAudio, isQrAnalysis)}
+    ${analysisModeBar(isImageAnalysis, isAudioAnalysis, isQrAnalysis)}
     <div class="detection-grid">
       <div class="detection-preview ${escapeHtml(detection.mode)}">
         <div class="preview-toolbar"><span></span><span></span><span></span><strong>AI Context Scan</strong></div>
-        <div class="preview-canvas ${isUploadedImage ? `uploaded-xai ${state.xaiMode}` : ""} ${isUploadedAudio ? `audio-xai ${state.audioXaiMode}` : ""} ${isQrAnalysis ? `qr-xai ${state.qrXaiMode}` : ""}">
+        <div class="preview-canvas ${isImageAnalysis ? `uploaded-xai ${state.xaiMode}` : ""} ${isAudioAnalysis ? `audio-xai ${state.audioXaiMode}` : ""} ${isQrAnalysis ? `qr-xai ${state.qrXaiMode}` : ""}">
           ${previewContent}
-          ${isUploadedImage ? `<div class="xai-legend"><span><i></i>${state.xaiMode === "heatmap" ? "Pengaruh tinggi" : "Area perhatian model"}</span><small>Simulasi XAI</small></div>` : ""}
+          ${isImageAnalysis ? `<div class="xai-legend"><span><i></i>${state.xaiMode === "heatmap" ? "Pengaruh tinggi" : "Area perhatian model"}</span><small>Simulasi XAI</small></div>` : ""}
         </div>
         <p class="preview-disclaimer">Simulasi frontend: highlight menunjukkan cara hasil AI dapat dijelaskan, bukan bukti final.</p>
       </div>
@@ -942,6 +1013,13 @@ function detectionPanel(profile, detection) {
   </section>`;
 }
 
+function trainingDetectionVisual(scenario) {
+  if (scenario.id === "manipulated-media") {
+    return `<div class="training-xai-source video-xai-source"><span class="xai-subject"></span><b>LIVE</b><div><small>AKUN TIDAK TERVERIFIKASI</small><strong>Investasi eksklusif hanya hari ini</strong></div></div>`;
+  }
+  return `<div class="training-xai-source social-xai-source"><div class="xai-post-head"><span></span><div><small>${scenario.id === "job-offer" ? "INFO KARIER" : "AKUN VIRAL"}</small><b>${scenario.id === "job-offer" ? "Rekrutmen prioritas" : "12,8 ribu kali dibagikan"}</b></div></div><strong>${escapeHtml(scenario.content)}</strong><div class="xai-post-action">${scenario.id === "job-offer" ? "Bayar biaya administrasi" : "Sebarkan sekarang"}</div></div>`;
+}
+
 function analysisModeBar(isImage, isAudio, isQr) {
   if (isImage) return `<div class="xai-mode-bar"><div><strong>Visual Penjelasan XAI</strong><span>Pilih cara model menampilkan area yang memengaruhi sinyal.</span></div><div class="xai-segmented" role="group" aria-label="Mode visual XAI"><button class="${state.xaiMode === "bounding" ? "active" : ""}" type="button" data-xai-mode="bounding">Bounding Box</button><button class="${state.xaiMode === "heatmap" ? "active" : ""}" type="button" data-xai-mode="heatmap">Heatmap</button></div></div>`;
   if (isAudio) return `<div class="xai-mode-bar"><div><strong>Penjelasan Pola Audio</strong><span>Bandingkan sinyal suara dan distribusi frekuensi simulatif.</span></div><div class="xai-segmented" role="group" aria-label="Mode analisis audio"><button class="${state.audioXaiMode === "voice" ? "active" : ""}" type="button" data-audio-xai-mode="voice">Voice Pattern</button><button class="${state.audioXaiMode === "spectrogram" ? "active" : ""}" type="button" data-audio-xai-mode="spectrogram">Spectrogram</button></div></div>`;
@@ -950,16 +1028,16 @@ function analysisModeBar(isImage, isAudio, isQr) {
 }
 
 function audioAnalysisPreview() {
-  return `<div class="audio-analysis-stage"><div class="audio-analysis-meta"><span>VOICE SAMPLE / 00:18</span><b>${state.audioXaiMode === "voice" ? "Pola suara" : "Spektrum frekuensi"}</b></div><div class="${state.audioXaiMode === "spectrogram" ? "spectrogram-panel" : "voice-pattern-panel"}">${waveformBars(58, "analysis-wave")}<span class="audio-marker marker-one">1</span><span class="audio-marker marker-two">2</span><span class="audio-marker marker-three">3</span></div><div class="audio-time-axis"><span>00:00</span><span>00:06</span><span>00:12</span><span>00:18</span></div><audio controls preload="metadata" src="${state.audioDataUrl}"></audio><div class="ai-transcript"><span>Transkrip simulasi</span><p>Nak, ini Mama. Nomor Mama bermasalah. <mark>Tolong transfer sekarang</mark> dan <mark>jangan telepon dulu</mark>.</p></div></div>`;
+  return `<div class="audio-analysis-stage"><div class="audio-analysis-meta"><span>VOICE SAMPLE / 00:18</span><b>${state.audioXaiMode === "voice" ? "Pola suara" : "Spektrum frekuensi"}</b></div><div class="${state.audioXaiMode === "spectrogram" ? "spectrogram-panel" : "voice-pattern-panel"}">${waveformBars(58, "analysis-wave")}<span class="audio-marker marker-one">1</span><span class="audio-marker marker-two">2</span><span class="audio-marker marker-three">3</span></div><div class="audio-time-axis"><span>00:00</span><span>00:06</span><span>00:12</span><span>00:18</span></div>${state.audioDataUrl ? `<audio controls preload="metadata" src="${state.audioDataUrl}"></audio>` : `<div class="audio-simulation-status"><i></i>Sampel audio skenario aktif</div>`}<div class="ai-transcript"><span>Transkrip simulasi</span><p>Nak, ini Mama. Nomor Mama bermasalah. <mark>Tolong transfer sekarang</mark> dan <mark>jangan telepon dulu</mark>.</p></div></div>`;
 }
 
 function qrAnalysisPreview() {
-  const isImage = state.qrInputMode === "image" && state.qrImageDataUrl;
+  const isImage = state.qrInputMode === "image" && (state.qrImageDataUrl || state.trainingScenario);
   if (state.qrXaiMode === "redirect") {
     return `<div class="redirect-analysis"><span class="analysis-label">SIMULATED REDIRECT TRACE</span><div class="redirect-chain"><div><i>1</i><span>Input pengguna<small>${isImage ? "QR image decode" : escapeHtml(safeHostname(state.content))}</small></span></div><b></b><div class="warn"><i>2</i><span>Short redirect<small>tracking-gateway.example</small></span></div><b></b><div class="danger"><i>3</i><span>Form kredensial<small>secure-login-check.example</small></span></div></div><p>Rantai ini adalah visualisasi dataset simulasi. HADANGIN tidak membuka alamat tersebut.</p></div>`;
   }
   if (isImage) {
-    return `<div class="qr-image-analysis"><img src="${state.qrImageDataUrl}" alt="QR upload dalam pemetaan risiko" /><span class="qr-scan-line"></span><span class="qr-focus focus-a">1</span><span class="qr-focus focus-b">2</span></div><div class="qr-destination"><span>Tujuan terbaca / simulasi</span><strong>pay-verify.example</strong><small>Penerima belum dapat dikonfirmasi</small></div>`;
+    return `<div class="qr-image-analysis">${state.qrImageDataUrl ? `<img src="${state.qrImageDataUrl}" alt="QR upload dalam pemetaan risiko" />` : `<div class="qr-case-scan"><div class="qr-pattern" aria-label="QR skenario latihan"><span></span><span></span><span></span></div><small>STIKER TERDETEKSI</small></div>`}<span class="qr-scan-line"></span><span class="qr-focus focus-a">1</span><span class="qr-focus focus-b">2</span></div><div class="qr-destination"><span>Tujuan terbaca / simulasi</span><strong>merchant-pay-check.example</strong><small>Nama penerima belum cocok dengan merchant</small></div>`;
   }
   const hostname = safeHostname(state.content);
   const parts = state.content.replace(/^https?:\/\//i, "").split(/([./?=&-])/).filter(Boolean);
@@ -1112,12 +1190,12 @@ function trainingPage() {
       <div class="training-3d-stage" id="training-3d-stage" role="img" aria-label="Arena Gobak Sodor 3D interaktif dengan empat penjaga J.E.D.A."><div class="training-3d-loading"><span></span><strong>Menyiapkan arena 3D</strong></div></div>
       <div class="training-3d-toolbar" aria-label="Kontrol arena 3D"><button type="button" data-3d-action="reset" aria-label="Atur ulang kamera" title="Atur ulang kamera">&#8635;</button><button type="button" data-3d-action="pause" aria-label="Jeda animasi" title="Jeda animasi">&#10074;&#10074;</button></div>
       <div class="training-3d-inspector" aria-live="polite"><span>Penjaga J.E.D.A.</span><strong>Pilih penjaga di arena</strong><p>Klik karakter untuk melihat tugasnya menghadang informasi.</p><button class="button button-small" type="button" data-scenario="family-emergency" disabled>Mulai Latihan</button></div>
-      <div class="page-shell training-hero-inner"><div class="training-hero-copy"><p class="eyebrow">Latihan Hadang &middot; Arena 3D</p><h1>Latih Nalar Sebelum Situasi Nyata Datang.</h1><p>Hadapi simulasi manipulasi digital yang dekat dengan kehidupan sehari-hari. Setiap skenario berlangsung sekitar dua menit.</p><div class="training-hero-actions"><button class="button" type="button" data-scroll-to="training-arenas">Pilih Skenario <span aria-hidden="true">&#8595;</span></button><div class="training-hero-status"><span>7 arena</span><span>4 garis J.E.D.A.</span><span>Human First</span></div></div></div></div>
+      <div class="page-shell training-hero-inner"><div class="training-hero-copy"><p class="eyebrow">Latihan Hadang &middot; Arena 3D</p><h1>Latih Nalar Sebelum Situasi Nyata Datang.</h1><p>Hadapi simulasi manipulasi digital yang dekat dengan kehidupan sehari-hari. Setiap skenario berlangsung sekitar dua menit.</p><div class="training-hero-actions"><button class="button" type="button" data-scroll-to="training-arenas">Pilih Skenario <span aria-hidden="true">&#8595;</span></button><div class="training-hero-status"><span>8 arena</span><span>4 garis J.E.D.A.</span><span>Human First</span></div></div></div></div>
       <span class="training-hero-caption">Geser kamera &middot; Klik penjaga</span>
     </section>
     <section class="section training-arena-section" id="training-arenas"><div class="page-shell">
-      <div class="section-header"><p class="section-kicker">7 skenario interaktif</p><h2>Pilih arena latihan</h2><p>Mulai dari pesan keluarga untuk melihat seluruh alur, atau uji automation bias pada skenario khusus.</p></div>
-      <div class="scenario-grid">${scenarios.map((scenario) => `<article class="scenario-card ${scenario.featured ? "featured" : ""}" data-scenario-card="${scenario.id}"><span class="scenario-no">${scenario.no}</span><h3>${scenario.title}</h3><p>${scenario.description}</p><div class="chip-row">${scenario.triggers.map((trigger) => `<span class="chip ${scenario.featured ? "chip-terra" : ""}">${trigger}</span>`).join("")}</div><button class="button ${scenario.featured ? "" : "button-secondary"}" data-scenario="${scenario.id}">Mulai Skenario</button></article>`).join("")}</div>
+      <div class="section-header"><p class="section-kicker">8 skenario multimodal</p><h2>Pilih arena latihan</h2><p>Setiap arena membawa bentuk informasi yang berbeda. Tipe data, preview, pertanyaan J.E.D.A., dan hasil XAI akan mengikuti kasus yang dipilih.</p></div>
+      <div class="scenario-grid">${scenarios.map((scenario) => `<article class="scenario-card ${scenario.featured ? "featured" : ""}" data-scenario-card="${scenario.id}"><div class="scenario-card-top"><span class="scenario-no">${scenario.no}</span><span class="scenario-format scenario-format-${scenario.inputType}">${escapeHtml(scenario.format)}</span></div><h3>${scenario.title}</h3><p>${scenario.description}</p><div class="scenario-source"><span>Sumber kasus</span><strong>${escapeHtml(scenario.source)}</strong></div><div class="scenario-mission"><span>Misi latihan</span><p>${escapeHtml(scenario.mission)}</p></div><div class="chip-row">${scenario.triggers.map((trigger) => `<span class="chip ${scenario.featured ? "chip-terra" : ""}">${trigger}</span>`).join("")}</div><button class="button ${scenario.featured ? "" : "button-secondary"}" data-scenario="${scenario.id}">Buka Arena ${escapeHtml(scenario.format)}</button></article>`).join("")}</div>
     </div></section>`;
 }
 
@@ -1145,12 +1223,17 @@ function aboutPage() {
 function startScenario(id) {
   const scenario = scenarios.find((item) => item.id === id) || scenarios[0];
   resetFlow();
-  state.content = scenario.content;
-  state.inputType = "text";
+  state.content = scenario.payload || scenario.content;
+  state.casePrompt = scenario.content;
+  state.inputType = scenario.inputType || "text";
+  state.qrInputMode = scenario.inputMode || "link";
   state.fileName = "";
   state.imageDataUrl = "";
+  state.audioDataUrl = "";
+  state.qrImageDataUrl = "";
   state.scenarioId = scenario.id;
   state.aiWrong = Boolean(scenario.aiWrong);
+  state.trainingScenario = true;
   state.inFlow = true;
   state.stage = 2;
   location.hash = "#/verify";
@@ -1208,10 +1291,11 @@ document.addEventListener("click", (event) => {
     }
     if (nextType === "text" && !state.content) state.content = DEFAULT_MESSAGE;
     state.inputType = nextType;
+    state.trainingScenario = false;
+    state.casePrompt = "";
     if (nextType === "audio") state.scenarioId = "audio-impersonation";
     if (nextType === "qr") state.scenarioId = state.qrInputMode === "image" ? "qr-payment" : "bank-message";
-    render();
-    setTimeout(() => document.getElementById("verify-tool")?.scrollIntoView(), 0);
+    render({ preserveScroll: true });
     return;
   }
   if (target.dataset.xaiMode) {
@@ -1236,8 +1320,9 @@ document.addEventListener("click", (event) => {
     state.qrImageDataUrl = "";
     state.content = "";
     state.scenarioId = state.qrInputMode === "image" ? "qr-payment" : "bank-message";
-    render();
-    setTimeout(() => document.getElementById("verify-tool")?.scrollIntoView(), 0);
+    state.trainingScenario = false;
+    state.casePrompt = "";
+    render({ preserveScroll: true });
     return;
   }
   if (target.dataset.select) {
@@ -1379,6 +1464,8 @@ document.addEventListener("input", (event) => {
     state.content = event.target.value;
     state.scenarioId = state.inputType === "qr" ? "bank-message" : "family-emergency";
     state.aiWrong = false;
+    state.trainingScenario = false;
+    state.casePrompt = "";
   }
   if (event.target.dataset.range === "initial-confidence") {
     state.initialConfidence = Number(event.target.value);
@@ -1408,6 +1495,8 @@ function processUploadedFile(file) {
   state.content = `${expectsAudio ? "Rekaman audio" : state.inputType === "qr" ? "Gambar QR" : "Gambar"}: ${file.name}`;
   state.scenarioId = expectsAudio ? "audio-impersonation" : state.inputType === "qr" ? "qr-payment" : "manipulated-media";
   state.aiWrong = false;
+  state.trainingScenario = false;
+  state.casePrompt = "";
   state.xaiMode = "bounding";
   const reader = new FileReader();
   reader.addEventListener("load", () => {
@@ -1488,4 +1577,4 @@ if (!location.hash) history.replaceState(null, "", "#/verify");
 render();
 
 // Exposed only for the local browser regression harness.
-Object.assign(window, { DEFAULT_MESSAGE, state, render, resetFlow, processUploadedFile });
+Object.assign(window, { DEFAULT_MESSAGE, state, render, resetFlow, startScenario, processUploadedFile });

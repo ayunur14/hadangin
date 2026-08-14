@@ -48,6 +48,10 @@ const cases = [
   { name: "direct-image", route: "verify", setup: "resetFlow(); state.inputType = 'image'; state.content = 'Unggahan promosi investasi'; state.inFlow = true; state.directDetection = true; state.stage = 4; render();" },
   { name: "direct-audio", route: "verify", setup: "resetFlow(); state.inputType = 'audio'; state.content = 'Pesan suara mendesak'; state.inFlow = true; state.directDetection = true; state.stage = 4; render();" },
   { name: "direct-link", route: "verify", setup: "resetFlow(); state.inputType = 'qr'; state.qrInputMode = 'link'; state.content = 'https://secure-verifikasi.example/login?session=urgent'; state.inFlow = true; state.directDetection = true; state.stage = 4; render();" },
+  { name: "scenario-qr", route: "verify", setup: "startScenario('qr-payment');" },
+  { name: "scenario-link", route: "verify", setup: "startScenario('bank-message');" },
+  { name: "scenario-image", route: "verify", setup: "startScenario('manipulated-media');" },
+  { name: "scenario-audio", route: "verify", setup: "startScenario('audio-impersonation');" },
 ];
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
@@ -159,6 +163,7 @@ try {
         if (await evaluate(cdp, "document.readyState === 'complete' && typeof window.render === 'function'")) break;
         await sleep(100);
       }
+      await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width <= 768 });
       if (testCase.setup) await evaluate(cdp, testCase.setup);
       await sleep(testCase.name === "training" ? 350 : 80);
       results.push({ name: testCase.name, width, height, ...(await evaluate(cdp, auditExpression)) });
