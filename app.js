@@ -1,3 +1,12 @@
+import {
+  isCommunityVisionActive,
+  mountCommunityVision,
+  setCommunityVisionProgress,
+  startCommunityVision,
+  stopCommunityVision,
+  suspendCommunityVision,
+} from "./community-vision.js";
+
 const DEFAULT_MESSAGE = "Nak, Mama kecelakaan. HP Mama rusak. Transfer Rp3 juta sekarang ke rekening ini. Tolong cepat, ya!";
 const HERO_VIDEO_URL = new URL("./assets/tolong_buatkan_video_songnya.mp4", import.meta.url).href;
 
@@ -517,6 +526,7 @@ function goToRoute(route) {
 
 function render(options = {}) {
   stopArenaGame();
+  suspendCommunityVision();
   window.dispatchEvent(new CustomEvent("hadang:before-render"));
   const previousScroll = window.scrollY;
   const previousPanelScroll = document.querySelector(".game-question-panel")?.scrollTop || 0;
@@ -530,6 +540,11 @@ function render(options = {}) {
   else app.innerHTML = state.inFlow ? verificationFlow() : verifyPage();
   window.dispatchEvent(new CustomEvent("hadang:rendered", { detail: { route: state.route } }));
   requestAnimationFrame(maybeStartArenaGame);
+  if (state.route === "community" && communityState.mode === "session" && communityState.phase === 1 && communityState.interactionMode === "vision") {
+    requestAnimationFrame(() => mountCommunityVision(communityState.completedLines));
+  } else if (isCommunityVisionActive()) {
+    stopCommunityVision();
+  }
   document.body.classList.toggle("game-active", state.route === "verify" && state.inFlow && state.stage === 3);
   requestAnimationFrame(() => {
     if (options.preserveScroll) {
@@ -1169,12 +1184,14 @@ const communityPacks = [
 
 const communityState = {
   mode: "setup",
+  interactionMode: "vision",
   audience: "Dewasa & Lansia",
   duration: "60 menit",
   packId: "family",
   participants: 24,
   phase: 0,
   completedLines: [],
+  visionUsed: false,
 };
 
 function activeCommunityPack() {
@@ -1194,13 +1211,17 @@ function communitySetup() {
       <div class="community-field"><span class="community-field-label">Kelompok peserta</span><div class="community-choice-row">${communityAudiences.map((item) => `<button type="button" class="${communityState.audience === item ? "active" : ""}" data-community-audience="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join("")}</div></div>
       <div class="community-field"><span class="community-field-label">Durasi sesi</span><div class="community-segmented">${communityDurations.map((item) => `<button type="button" class="${communityState.duration === item ? "active" : ""}" data-community-duration="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join("")}</div></div>
       <div class="community-field"><span class="community-field-label">Paket kasus</span><div class="community-pack-grid">${communityPacks.map((item) => `<button type="button" class="community-pack ${communityState.packId === item.id ? "active" : ""}" data-community-pack="${item.id}"><span>${escapeHtml(item.format)}</span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.note)}</small></button>`).join("")}</div></div>
+      <div class="community-field"><span class="community-field-label">Cara bermain</span><div class="community-mode-grid">
+        <button type="button" class="community-mode-card ${communityState.interactionMode === "vision" ? "active" : ""}" data-community-mode="vision"><span class="community-mode-icon" aria-hidden="true">CV</span><span><b>Arena Kamera</b><small>Gerakkan tubuh dan lakukan pose Hadang. AI membaca pose langsung di perangkat.</small></span><i>Computer Vision</i></button>
+        <button type="button" class="community-mode-card ${communityState.interactionMode === "manual" ? "active" : ""}" data-community-mode="manual"><span class="community-mode-icon manual" aria-hidden="true">J</span><span><b>Fasilitator Manual</b><small>Kendalikan setiap pos J.E.D.A. dengan klik. Cocok tanpa kamera atau koneksi stabil.</small></span><i>Tanpa kamera</i></button>
+      </div></div>
       <label class="community-number-field" for="community-participants"><span>Perkiraan peserta</span><input id="community-participants" type="number" min="4" max="120" value="${communityState.participants}" inputmode="numeric" /><small>4-120 orang</small></label>
       <button class="button community-start-button" type="button" data-action="start-community">Buat Ruang Komunitas <span aria-hidden="true">&#8594;</span></button>
     </section>
     <aside class="community-session-preview" aria-label="Ringkasan sesi yang akan dibuat">
       <div class="community-preview-head"><span>Pratinjau sesi</span><i>Mode fasilitator lokal</i></div>
       <div class="community-preview-case"><small>Kasus pembuka</small><strong>${escapeHtml(pack.caseTitle)}</strong><blockquote>${escapeHtml(pack.content)}</blockquote></div>
-      <dl><div><dt>Peserta</dt><dd>${escapeHtml(communityState.audience)}</dd></div><div><dt>Durasi</dt><dd>${escapeHtml(communityState.duration)}</dd></div><div><dt>Format</dt><dd>${escapeHtml(pack.format)}</dd></div></dl>
+      <dl><div><dt>Peserta</dt><dd>${escapeHtml(communityState.audience)}</dd></div><div><dt>Durasi</dt><dd>${escapeHtml(communityState.duration)}</dd></div><div><dt>Format</dt><dd>${escapeHtml(pack.format)}</dd></div><div><dt>Interaksi</dt><dd>${communityState.interactionMode === "vision" ? "Arena Kamera AI" : "Fasilitator Manual"}</dd></div></dl>
       <div class="community-preview-path"><span>Voting Awal</span><i></i><span>J.E.D.A.</span><i></i><span>AI Lens</span><i></i><span>Debrief</span></div>
       <p>Gunakan skenario yang tersedia. Hindari menampilkan pesan pribadi peserta pada layar bersama.</p>
     </aside>
@@ -1211,7 +1232,7 @@ function communitySession() {
   const phases = ["Voting Awal", "Diskusi J.E.D.A.", "Voting Akhir", "Debrief"];
   const pack = activeCommunityPack();
   return `<section class="community-live"><div class="page-shell">
-    <div class="community-live-topbar"><div><span>Kode ruang</span><strong>HAD-204</strong><small>Mode fasilitator lokal</small></div><div class="community-phase-track">${phases.map((item, index) => `<span class="${index < communityState.phase ? "done" : index === communityState.phase ? "active" : ""}">${index < communityState.phase ? "&#10003;" : index + 1}<small>${item}</small></span>`).join("")}</div><button class="button button-ghost button-small" type="button" data-action="reset-community">Akhiri Sesi</button></div>
+    <div class="community-live-topbar"><div><span>Kode ruang</span><strong>HAD-204</strong><small>${communityState.interactionMode === "vision" ? "Arena Kamera AI" : "Mode fasilitator lokal"}</small></div><div class="community-phase-track">${phases.map((item, index) => `<span class="${index < communityState.phase ? "done" : index === communityState.phase ? "active" : ""}">${index < communityState.phase ? "&#10003;" : index + 1}<small>${item}</small></span>`).join("")}</div><button class="button button-ghost button-small" type="button" data-action="reset-community">Akhiri Sesi</button></div>
     ${communityPhase(pack)}
   </div></section>`;
 }
@@ -1232,18 +1253,49 @@ function communityPhase(pack) {
       ["D", "Data", "Bukti independen apa yang perlu dicari?"],
       ["A", "Aksi", "Apa risiko tindakan dan alternatif yang lebih aman?"],
     ];
+    if (communityState.interactionMode === "vision") return communityVisionStage(lines);
     const complete = communityState.completedLines.length === lines.length;
     return `<section class="community-jeda-stage"><header><p class="section-kicker">Empat pos diskusi</p><h2>Bergerak melewati garis nalar.</h2><p>Klik setiap pos setelah kelompok menyelesaikan diskusinya.</p></header><div class="community-jeda-lines">${lines.map(([letter, title, question], index) => `<button type="button" class="${communityState.completedLines.includes(letter) ? "complete" : ""}" data-community-line="${letter}"><span>${letter}</span><small>POS 0${index + 1}</small><strong>${title}</strong><p>${question}</p><i>${communityState.completedLines.includes(letter) ? "Selesai" : "Tandai selesai"}</i></button>`).join("")}</div><div class="community-stage-actions"><span>${communityState.completedLines.length} dari 4 pos selesai</span><button class="button" type="button" data-action="community-next" ${complete ? "" : "disabled"}>Buka Voting Akhir &#8594;</button></div></section>`;
   }
   if (communityState.phase === 2) {
     return `<div class="community-stage-layout"><section class="community-projection final"><div class="projection-label"><span>Voting setelah J.E.D.A.</span><b>Human Final</b></div><h2>Apakah keputusan kelompok berubah?</h2><p>Bandingkan respons akhir dengan keputusan sebelum diskusi.</p><div class="community-shift"><div><small>Sebelum</small><strong>42%</strong><span>langsung lanjut</span></div><i aria-hidden="true">&#8594;</i><div><small>Sesudah</small><strong>82%</strong><span>verifikasi atau berhenti</span></div></div></section><aside class="community-facilitator-panel"><p class="section-kicker">Voting akhir</p><h2>Keputusan kelompok</h2>${communityVoteBars(true)}<button class="button button-teal" type="button" data-action="community-next">Lihat Debrief &#8594;</button></aside></div>`;
   }
-  return `<section class="community-debrief"><header><p class="section-kicker">Ringkasan sesi</p><h2>Kelompok memberi ruang lebih besar untuk verifikasi.</h2><p>Hasil berikut adalah data demo yang menunjukkan format laporan ketika backend multi-perangkat tersedia.</p></header><div class="community-impact-grid"><article><span>Perubahan aman</span><strong>+54%</strong><p>Peserta beralih ke verifikasi atau berhenti.</p></article><article><span>Pos selesai</span><strong>4/4</strong><p>Semua pertanyaan J.E.D.A. didiskusikan.</p></article><article><span>Peserta</span><strong>${communityState.participants}</strong><p>${escapeHtml(communityState.audience)} &middot; ${escapeHtml(communityState.duration)}</p></article></div><div class="community-learning"><div><strong>Temuan diskusi</strong><p>Tekanan waktu dan identitas pengirim menjadi dua sinyal yang paling cepat dikenali. Pemeriksaan bukti independen masih perlu dilatih.</p></div><div><strong>Tindak lanjut</strong><p>Ulangi latihan dengan paket media berbeda dan minta peserta membawa satu strategi verifikasi untuk dipraktikkan di rumah.</p></div></div><div class="community-stage-actions"><button class="button button-secondary" type="button" data-action="download-community-kit">Unduh Panduan Sesi</button><button class="button" type="button" data-action="reset-community">Buat Sesi Baru</button></div></section>`;
+  return `<section class="community-debrief"><header><p class="section-kicker">Ringkasan sesi</p><h2>Kelompok memberi ruang lebih besar untuk verifikasi.</h2><p>Hasil berikut adalah data demo yang menunjukkan format laporan ketika backend multi-perangkat tersedia.</p></header><div class="community-impact-grid"><article><span>Perubahan aman</span><strong>+54%</strong><p>Peserta beralih ke verifikasi atau berhenti.</p></article><article><span>Pos selesai</span><strong>4/4</strong><p>Semua pertanyaan J.E.D.A. didiskusikan.</p></article><article><span>${communityState.visionUsed ? "Pose Hadang" : "Peserta"}</span><strong>${communityState.visionUsed ? "4" : communityState.participants}</strong><p>${communityState.visionUsed ? "Computer Vision diproses lokal tanpa merekam video." : `${escapeHtml(communityState.audience)} &middot; ${escapeHtml(communityState.duration)}`}</p></article></div><div class="community-learning"><div><strong>Temuan diskusi</strong><p>Tekanan waktu dan identitas pengirim menjadi dua sinyal yang paling cepat dikenali. Pemeriksaan bukti independen masih perlu dilatih.</p></div><div><strong>Tindak lanjut</strong><p>Ulangi latihan dengan paket media berbeda dan minta peserta membawa satu strategi verifikasi untuk dipraktikkan di rumah.</p></div></div><div class="community-stage-actions"><button class="button button-secondary" type="button" data-action="download-community-kit">Unduh Panduan Sesi</button><button class="button" type="button" data-action="reset-community">Buat Sesi Baru</button></div></section>`;
+}
+
+function communityVisionStage(lines) {
+  const nextIndex = lines.findIndex(([letter]) => !communityState.completedLines.includes(letter));
+  const activeIndex = nextIndex === -1 ? lines.length : nextIndex;
+  const activeLine = lines[activeIndex] || ["", "Arena selesai", "Semua garis nalar berhasil dihadang."];
+  const complete = activeIndex === lines.length;
+  return `<section class="community-vision-stage" data-current-vision-line="${activeLine[0]}">
+    <header class="community-vision-heading"><div><p class="section-kicker">Virtual Gobak Sodor &middot; AI Computer Vision</p><h2>Hadang informasi dengan gerakan tubuh.</h2><p>Satu pemain bergerak di depan kamera. Bahas pertanyaan pada garis aktif, lalu angkat kedua tangan dan tahan pose untuk menghadang.</p></div><span class="vision-privacy-badge">Diproses lokal &middot; Tidak direkam</span></header>
+    <div class="community-vision-layout">
+      <div class="vision-game-board">
+        <video id="community-vision-video" muted playsinline aria-label="Preview kamera pemain"></video>
+        <canvas id="community-vision-canvas" aria-hidden="true"></canvas>
+        <div class="vision-camera-empty"><span>CV</span><strong>Kamera belum aktif</strong><small>Aktifkan saat pemain sudah siap di depan layar.</small></div>
+        <div class="vision-court" aria-hidden="true">${lines.map(([letter, title], index) => `<div class="vision-court-line ${index < activeIndex ? "complete" : index === activeIndex ? "active" : ""}"><i></i><span>${letter}<small>${title}</small></span></div>`).join("")}</div>
+        <div class="vision-player-marker" id="vision-player-marker" aria-hidden="true"><i></i><span>PEMAIN</span></div>
+        <div class="vision-hud"><span class="vision-status-dot" data-vision-status="idle"></span><strong id="vision-status-text">Kamera tidak aktif</strong></div>
+        <div class="vision-motion-meter"><i id="vision-hold-meter"></i><span id="vision-motion-label">Angkat kedua tangan untuk Hadang</span></div>
+      </div>
+      <aside class="vision-coach-panel">
+        <div class="vision-coach-top"><span>GARIS AKTIF</span><b>${complete ? "SELESAI" : `0${activeIndex + 1} / 04`}</b></div>
+        <div class="vision-current-prompt"><span>${activeLine[0] || "&#10003;"}</span><div><small>${escapeHtml(activeLine[1])}</small><h3>${escapeHtml(activeLine[2])}</h3></div></div>
+        <ol class="vision-station-list">${lines.map(([letter, title], index) => `<li class="${communityState.completedLines.includes(letter) ? "complete" : index === activeIndex ? "active" : ""}"><span>${letter}</span><b>${title}</b><i>${communityState.completedLines.includes(letter) ? "Selesai" : index === activeIndex ? "Giliran ini" : "Menunggu"}</i></li>`).join("")}</ol>
+        <div class="vision-instructions"><strong>Cara bermain</strong><p>1. Berdiri hingga skeleton muncul.<br>2. Diskusikan pertanyaan garis aktif.<br>3. Angkat kedua tangan selama 1 detik.</p></div>
+        <button class="button vision-camera-button" type="button" data-action="toggle-community-camera">${isCommunityVisionActive() ? "Matikan Kamera" : "Aktifkan Kamera AI"}</button>
+        ${!complete ? `<button class="vision-manual-fallback" type="button" data-community-line="${activeLine[0]}">Tandai manual</button>` : ""}
+      </aside>
+    </div>
+    <div class="community-stage-actions"><span>${communityState.completedLines.length} dari 4 garis berhasil dihadang</span><button class="button" type="button" data-action="community-next" ${complete ? "" : "disabled"}>Buka Voting Akhir &#8594;</button></div>
+  </section>`;
 }
 
 function downloadCommunityKit() {
   const pack = activeCommunityPack();
-  const guide = `PANDUAN SESI HADANGIN\n\nAudiens: ${communityState.audience}\nDurasi: ${communityState.duration}\nPeserta: ${communityState.participants}\nPaket: ${pack.title}\nKasus: ${pack.caseTitle}\n\nALUR\n1. Voting awal tanpa petunjuk AI.\n2. Jeda: kenali tekanan untuk segera bereaksi.\n3. Emosi: identifikasi emosi yang sedang dipengaruhi.\n4. Data: tentukan bukti independen yang perlu dicari.\n5. Aksi: nilai risiko dan alternatif yang lebih aman.\n6. Voting akhir dan debrief.\n\nPRIVASI\nGunakan skenario yang telah dianonimkan. Jangan tampilkan pesan pribadi peserta pada layar bersama.\n`;
+  const guide = `PANDUAN SESI HADANGIN\n\nAudiens: ${communityState.audience}\nDurasi: ${communityState.duration}\nPeserta: ${communityState.participants}\nPaket: ${pack.title}\nKasus: ${pack.caseTitle}\nMode: ${communityState.interactionMode === "vision" ? "Arena Kamera AI Computer Vision" : "Fasilitator Manual"}\n\nALUR\n1. Voting awal tanpa petunjuk AI.\n2. Jeda: kenali tekanan untuk segera bereaksi.\n3. Emosi: identifikasi emosi yang sedang dipengaruhi.\n4. Data: tentukan bukti independen yang perlu dicari.\n5. Aksi: nilai risiko dan alternatif yang lebih aman.\n6. Voting akhir dan debrief.\n\nARENA KAMERA\nSatu pemain berdiri di depan kamera. Setelah membahas setiap pertanyaan, pemain mengangkat kedua tangan selama satu detik untuk menghadang informasi. Sediakan kontrol manual sebagai pilihan aksesibilitas.\n\nPRIVASI\nGunakan skenario yang telah dianonimkan. Jangan tampilkan pesan pribadi peserta pada layar bersama. Video kamera diproses lokal di browser, tidak direkam, dan tidak dikirim ke server.\n`;
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob([guide], { type: "text/plain;charset=utf-8" }));
   link.download = "panduan-sesi-hadangin.txt";
@@ -1378,6 +1430,25 @@ function updateMulti(key, value) {
   render({ preserveScroll: true });
 }
 
+window.addEventListener("hadang:vision-status", (event) => {
+  const { kind, message } = event.detail;
+  const stage = document.querySelector(".community-vision-stage");
+  const dot = document.querySelector("[data-vision-status]");
+  const text = document.querySelector("#vision-status-text");
+  if (stage) stage.dataset.visionState = kind;
+  if (dot) dot.dataset.visionStatus = kind;
+  if (text) text.textContent = message;
+});
+
+window.addEventListener("hadang:vision-line-complete", (event) => {
+  const line = event.detail?.line;
+  if (!line || communityState.completedLines.includes(line)) return;
+  communityState.completedLines = [...communityState.completedLines, line];
+  setCommunityVisionProgress(communityState.completedLines);
+  showToast(`Garis ${line} berhasil dihadang dengan pose tubuh.`);
+  render({ preserveScroll: true });
+});
+
 document.addEventListener("click", (event) => {
   const target = event.target.closest("button, a");
   if (!target) return;
@@ -1408,6 +1479,11 @@ document.addEventListener("click", (event) => {
   }
   if (target.dataset.communityPack) {
     communityState.packId = target.dataset.communityPack;
+    render({ preserveScroll: true });
+    return;
+  }
+  if (target.dataset.communityMode) {
+    communityState.interactionMode = target.dataset.communityMode;
     render({ preserveScroll: true });
     return;
   }
@@ -1496,16 +1572,31 @@ document.addEventListener("click", (event) => {
     communityState.mode = "session";
     communityState.phase = 0;
     communityState.completedLines = [];
+    communityState.visionUsed = false;
     render();
     setTimeout(() => document.querySelector(".community-live")?.scrollIntoView(), 0);
   } else if (action === "community-next") {
     communityState.phase = Math.min(3, communityState.phase + 1);
     render({ preserveScroll: true });
   } else if (action === "reset-community") {
+    stopCommunityVision();
     communityState.mode = "setup";
     communityState.phase = 0;
     communityState.completedLines = [];
     render();
+  } else if (action === "toggle-community-camera") {
+    if (isCommunityVisionActive()) {
+      stopCommunityVision();
+      render({ preserveScroll: true });
+    } else {
+      startCommunityVision(communityState.completedLines).then((started) => {
+        if (started) {
+          communityState.visionUsed = true;
+          const button = document.querySelector('[data-action="toggle-community-camera"]');
+          if (button) button.textContent = "Matikan Kamera";
+        }
+      });
+    }
   } else if (action === "download-community-kit") {
     downloadCommunityKit();
   } else if (action === "focus-question") {
