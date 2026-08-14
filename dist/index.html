@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="id" data-theme="blue">
+<html lang="id" data-theme="blue" data-language="id">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,6 +12,7 @@
     <script>
       try {
         if (localStorage.getItem("hadangin-theme") === "light") document.documentElement.dataset.theme = "light";
+        document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
       } catch {}
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -20,8 +21,8 @@
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <script type="module" crossorigin src="/assets/index-BhxfhLDi.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CrAo6Js-.css">
+    <script type="module" crossorigin src="/assets/index-dg-ABJvK.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BZFrHIlE.css">
   </head>
   <body>
     <a class="skip-link" href="#app">Lewati ke konten</a>
@@ -47,6 +48,9 @@
         <button class="theme-toggle icon-button" type="button" data-theme-toggle aria-label="Gunakan tema putih biru" aria-pressed="false" title="Gunakan tema putih biru">
           <span class="theme-toggle-icon" aria-hidden="true"></span>
         </button>
+        <button class="language-toggle icon-button notranslate" type="button" data-language-toggle aria-label="Translate website to English" aria-pressed="false" title="Translate website to English" translate="no">
+          <span aria-hidden="true">EN</span>
+        </button>
         <a class="button button-small nav-cta" href="#/verify">Mulai Verifikasi</a>
       </div>
     </header>
@@ -64,6 +68,6 @@
       </div>
     </footer>
 
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
   </body>
 </html>

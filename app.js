@@ -6,6 +6,7 @@ import {
   stopCommunityVision,
   suspendCommunityVision,
 } from "./community-vision.js";
+import GENERATED_ENGLISH from "./translations-en.json";
 
 const DEFAULT_MESSAGE = "Nak, Mama kecelakaan. HP Mama rusak. Transfer Rp3 juta sekarang ke rekening ini. Tolong cepat, ya!";
 const OFFLINE_KIT_URL = new URL("./assets/hadangin-offline-kit.png", import.meta.url).href;
@@ -436,13 +437,271 @@ const app = document.querySelector("#app");
 const toast = document.querySelector("#toast");
 let toastTimer;
 
+const LANGUAGE_STORAGE_KEY = "hadangin-language";
+const originalText = new WeakMap();
+const originalAttributes = new WeakMap();
+let applyingLanguage = false;
+
+const ENGLISH_PHRASES = new Map([
+  ["Lewati ke konten", "Skip to content"], ["Verifikasi", "Verify"], ["Latihan Hadang", "Hadang Training"],
+  ["Komunitas", "Community"], ["Cara Kerja", "How It Works"], ["Tentang", "About"], ["Mulai Verifikasi", "Start Verification"],
+  ["Hadang Sebelum Terjebak", "Block It Before You Get Trapped"], ["Mulai Pemeriksaan", "Start Checking"], ["Coba Latihan", "Try Training"],
+  ["Gulir untuk memahami alur", "Scroll to understand the flow"], ["Sebelum mulai", "Before you begin"],
+  ["Periksa Informasi Mencurigakan", "Check Suspicious Information"], ["Pilih jenis konten", "Choose content type"],
+  ["Pilih cara pemeriksaan", "Choose a checking method"], ["Pemrosesan lokal", "Local processing"],
+  ["Deteksi AI", "AI Detection"], ["Prediksi + XAI langsung", "Instant prediction + XAI"],
+  ["Bentuk penilaian awal", "Form an initial judgment"], ["Question & check", "Question & Check"],
+  ["Bandingkan, lalu putuskan", "Compare, then decide"], ["Tempel Tautan", "Paste Link"], ["Upload QR", "Upload QR"],
+  ["QR siap diperiksa", "QR ready to check"], ["Ganti QR", "Replace QR"], ["Upload gambar QR", "Upload QR image"],
+  ["Pilih Gambar QR", "Choose QR Image"], ["Alamat tujuan yang ingin diperiksa", "Destination address to check"],
+  ["Pratinjau aman: tanpa membuka situs tujuan", "Safe preview: destination site is not opened"],
+  ["Rekaman siap diperiksa", "Recording ready to check"], ["Ganti Audio", "Replace Audio"],
+  ["Gambar siap diperiksa", "Image ready to check"], ["Ganti Gambar", "Replace Image"], ["Pilih File", "Choose File"],
+  ["Human First", "Human First"], ["AI Second", "AI Second"], ["Human Final", "Human Final"],
+  ["Sebelum AI Membantu", "Before AI Helps"], ["Apa respons pertamamu jika ini terjadi di dunia nyata?", "What would your first response be if this happened in real life?"],
+  ["Seberapa yakin kamu dengan keputusan itu?", "How confident are you in that decision?"], ["Kembali", "Back"],
+  ["Kunci Penilaian Awal", "Lock Initial Judgment"], ["Gambar yang diperiksa", "Image Being Checked"],
+  ["Rekaman yang diperiksa", "Recording Being Checked"], ["Transkrip simulasi", "Simulated transcript"],
+  ["QR yang diperiksa", "QR Being Checked"], ["Tautan yang diperiksa", "Link Being Checked"],
+  ["Informasi yang diperiksa", "Information Being Checked"], ["Bagikan", "Share"], ["belum yakin", "not confident yet"],
+  ["STATUS ARENA", "ARENA STATUS"], ["SKOR", "SCORE"], ["NYAWA", "LIVES"], ["POS PENJAGA", "GUARD POST"],
+  ["Buka Pertanyaan", "Open Question"], ["MISI HADANGIN", "HADANGIN MISSION"], ["Mulai Permainan", "Start Game"],
+  ["Jangan biarkan lolos", "Do not let it pass"], ["MISI GAGAL", "MISSION FAILED"], ["Ulangi Ronde", "Retry Round"],
+  ["Garis 01 - Jeda", "Line 01 - Pause"], ["Garis 02 - Emosi", "Line 02 - Emotion"], ["Garis 03 - Data", "Line 03 - Data"],
+  ["Garis 04 - Aksi", "Line 04 - Action"], ["Berhenti sejenak dari dorongan bertindak", "Pause the urge to act"],
+  ["Kenali emosi yang sedang dipancing", "Recognize the emotion being triggered"], ["Pisahkan klaim dari buktinya", "Separate claims from evidence"],
+  ["Lihat tindakan dan konsekuensinya", "Consider the action and its consequences"], ["Tanpa tekanan emosi", "Without emotional pressure"],
+  ["Klaim", "Claim"], ["Bukti independen", "Independent evidence"], ["Pertanyaan reflektif", "Reflective questions"],
+  ["Visual Penjelasan XAI", "XAI Explanation Visual"], ["Penjelasan Pola Audio", "Audio Pattern Explanation"],
+  ["Penjelasan Risiko Tujuan", "Destination Risk Explanation"], ["Input pengguna", "User input"],
+  ["Form kredensial", "Credential form"], ["Tujuan terbaca / simulasi", "Detected destination / simulation"],
+  ["Host terbaca", "Detected host"], ["Pola terdeteksi", "Detected pattern"], ["Status", "Status"],
+  ["Perlu verifikasi", "Needs verification"], ["Ganti Konten", "Change Content"], ["Hasil prediksi langsung", "Instant prediction result"],
+  ["Keputusan akhir", "Final decision"], ["Keputusan final", "Final decision"], ["Lanjut Latihan", "Continue Training"],
+  ["Periksa Lagi", "Check Again"], ["Tentang Inisiatif", "About the Initiative"], ["Untuk siapa", "Who It Is For"],
+  ["Pilih Skenario", "Choose a Scenario"], ["Mulai Latihan", "Start Training"], ["Pilih penjaga di arena", "Choose a guard in the arena"],
+  ["Mode permainan", "Game mode"], ["Arena Offline", "Offline Arena"], ["Arena Kamera AI", "AI Camera Arena"],
+  ["Perkiraan peserta", "Estimated participants"], ["orang", "people"], ["Mode utama", "Main mode"],
+  ["Persiapan", "Preparation"], ["Mulai Sesi", "Start Session"], ["Unduh Panduan", "Download Guide"],
+  ["Tim", "Team"], ["Babak", "Round"], ["Pertanyaan", "Question"], ["Jawaban", "Answer"],
+  ["Benar", "Correct"], ["Salah", "Incorrect"], ["Selanjutnya", "Next"], ["Selesai", "Finish"],
+  ["Jeda", "Pause"], ["Emosi", "Emotion"], ["Data", "Evidence"], ["Aksi", "Action"],
+  ["Darurat", "Emergency"], ["Ancaman", "Threat"], ["Hadiah", "Reward"],
+  ["Kesempatan terbatas", "Limited opportunity"], ["Tekanan sosial", "Social pressure"], ["Tidak ada tekanan", "No pressure"],
+  ["Takut", "Fear"], ["Panik", "Panic"], ["Kasihan", "Sympathy"], ["Percaya", "Trust"], ["Marah", "Anger"],
+  ["Harapan", "Hope"], ["Penasaran", "Curiosity"], ["Kedekatan emosional", "Emotional attachment"], ["Tidak yakin", "Unsure"],
+  ["Ya", "Yes"], ["Sedikit", "Slightly"], ["Tidak", "No"], ["Belum dipilih", "Not selected yet"],
+  ["Transfer", "Transfer"], ["Klik", "Click"], ["Berikan OTP", "Provide OTP"], ["Share", "Share"], ["Scan", "Scan"],
+  ["Download", "Download"], ["Kirim data pribadi", "Send personal data"], ["Investasi / pembelian", "Investment / purchase"],
+  ["Kirim voice note balasan", "Send a voice-note reply"], ["Teruskan rekaman", "Forward the recording"],
+  ["Kehilangan uang", "Losing money"], ["Akun diambil alih", "Account takeover"], ["Data pribadi bocor", "Personal data leak"],
+  ["Misinformasi menyebar", "Misinformation spreading"], ["Pembayaran masuk ke pihak salah", "Payment sent to the wrong party"],
+  ["Perangkat terinfeksi", "Device infection"], ["Saldo tertahan", "Funds being held"],
+  ["Identitas disalahgunakan", "Identity misuse"], ["Reputasi pihak dirugikan", "Damage to someone's reputation"],
+  ["Konflik meningkat", "Escalating conflict"], ["Mengabaikan pengumuman sah", "Ignoring a legitimate announcement"],
+  ["Tidak ada risiko besar", "No major risk"], ["Kepanikan menyebar", "Panic spreading"],
+  ["Telepon nomor tersimpan", "Call the saved number"], ["Buka aplikasi resmi sendiri", "Open the official app yourself"],
+  ["Cari sumber independen", "Find an independent source"], ["Tunggu dan cek ulang", "Wait and check again"],
+  ["Konfirmasi QR kepada kasir", "Confirm the QR with the cashier"], ["Batalkan dan cek ulang", "Cancel and check again"],
+  ["Tolak biaya di muka", "Refuse upfront fees"], ["Tunda membagikan", "Delay sharing"], ["Tunda transfer", "Delay the transfer"],
+  ["Hadang Garis 1", "Block Line 1"], ["Hadang Garis 2", "Block Line 2"], ["Hadang Garis 3", "Block Line 3"],
+  ["Hadang Sebelum Bertindak", "Block Before Acting"],
+  ["Bayangkan ada pesan yang membuatmu ingin langsung bertindak.", "Imagine receiving a message that makes you want to act immediately."],
+  ["Metode J.E.D.A. menerjemahkan prinsip MIL menjadi pengalaman interaktif berbasis budaya hadang/gobak sodor.", "The J.E.D.A. method turns MIL principles into an interactive experience inspired by the Indonesian game hadang/gobak sodor."],
+  ["Tujuannya bukan sekadar menemukan “hoaks” atau “bukan hoaks”, tetapi membangun kebiasaan berpikir: berhenti dulu, periksa konteks, gunakan AI sebagai lensa, lalu ambil keputusan sendiri.", "The goal is not simply to label something as a hoax or not, but to build a thinking habit: pause, check the context, use AI as a lens, and make your own decision."],
+  ["Masukkan konten yang ingin kamu evaluasi. Pilih Deteksi AI untuk hasil langsung, atau AI Plus untuk alur Human First dan latihan J.E.D.A.", "Enter the content you want to evaluate. Choose AI Detection for an instant result, or AI Plus for the Human First flow and J.E.D.A. training."],
+  ["Konten hanya diproses di perangkat ini untuk kebutuhan simulasi dan tidak dikirim ke server.", "Content is processed only on this device for the simulation and is not sent to a server."],
+  ["Keduanya menggunakan Explainable AI. AI Plus menambahkan latihan penalaran dan permainan J.E.D.A.", "Both use Explainable AI. AI Plus also includes reasoning exercises and the J.E.D.A. game."],
+  ["Respons dan keyakinanmu dicatat sebelum sinyal AI ditampilkan.", "Your response and confidence are recorded before AI signals are shown."],
+  ["Metode lokal untuk mengenali tekanan, emosi, data, dan risiko aksi.", "A localized method for recognizing pressure, emotion, evidence, and action risks."],
+  ["AI memberi second opinion. Keputusan final tetap berada padamu.", "AI provides a second opinion. The final decision remains yours."],
+  ["Kami ingin tahu bagaimana kamu membaca situasi ini terlebih dahulu.", "We want to understand how you interpret this situation first."],
+  ["AI belum akan ditampilkan sampai kamu menyelesaikan tahap berpikir awal.", "AI will not be shown until you complete the initial thinking stage."],
+  ["Jangan biarkan informasi lolos menuju tindakan.", "Do not let information pass straight into action."],
+  ["Gerakkan penjaga aktif di garisnya, tangkap token informasi, lalu jawab pertanyaan J.E.D.A. Jangan biarkan tiga token lolos menuju tindakan.", "Move the active guard along the line, catch information tokens, then answer the J.E.D.A. question. Do not let three tokens reach the action zone."],
+  ["Tekanan waktu dapat mengurangi ruang untuk mengevaluasi informasi.", "Time pressure can reduce your ability to evaluate information."],
+  ["Emosi bukan kesalahan. Mengenalinya membantu kamu menjaga jarak dari tekanan.", "Emotions are not a mistake. Recognizing them helps you step back from pressure."],
+  ["Bukti yang baik tidak hanya berasal dari pihak yang membuat klaim.", "Good evidence does not come only from the party making the claim."],
+  ["Pesan manipulatif sering dibuat untuk mempercepat aksi yang sulit dibatalkan.", "Manipulative messages often push people toward actions that are difficult to reverse."],
+  ["Highlight menunjukkan area yang memengaruhi hasil analisis dan bukan merupakan bukti final.", "Highlights show areas that influence the analysis and are not final evidence."],
+  ["Statistik dibuat untuk demonstrasi UI dan bukan hasil model produksi.", "These statistics are for UI demonstration and are not produced by a production model."],
+  ["Hasil ini melewati latihan Human First dan game. Gunakan penjelasan XAI untuk menentukan apa yang masih perlu diverifikasi.", "This result skips the Human First exercise and game. Use the XAI explanation to decide what still needs verification."],
+  ["AI adalah Lensa, Bukan Hakim.", "AI Is a Lens, Not a Judge."],
+  ["Keputusan akhir tetap milik manusia.", "The final decision always belongs to people."],
+  ["Latih Nalar Sebelum Situasi Nyata Datang.", "Train Your Judgment Before a Real Situation Arises."],
+  ["Literasi yang dekat dengan kehidupan digital sehari-hari", "Literacy Grounded in Everyday Digital Life"],
+  ["AI Context Guard Web yang Dilokalkan Menjadi HADANGIN", "AI Context Guard Web Localized as HADANGIN"],
+  ["HADANGIN adalah prototipe lokal dari konsep AI Context Guard Web untuk Indonesia: web ringan yang membantu masyarakat berhenti, berpikir, memverifikasi, dan mengambil keputusan dengan lebih sadar.", "HADANGIN is an Indonesian prototype of the AI Context Guard Web concept: a lightweight website that helps people pause, think, verify, and make more informed decisions."],
+]);
+
+const ENGLISH_WORDS = {
+  "dan":"and", "atau":"or", "untuk":"for", "dengan":"with", "tanpa":"without", "dari":"from", "ke":"to", "di":"in",
+  "yang":"that", "ini":"this", "itu":"that", "adalah":"is", "akan":"will", "belum":"not yet", "tidak":"not", "bukan":"not",
+  "kamu":"you", "pengguna":"user", "informasi":"information", "pesan":"message", "konten":"content", "hasil":"result", "model":"model",
+  "bukti":"evidence", "keputusan":"decision", "tindakan":"action", "risiko":"risk", "sinyal":"signal", "konteks":"context", "sumber":"source",
+  "periksa":"check", "pilih":"choose", "mulai":"start", "lanjut":"continue", "lihat":"view", "gunakan":"use", "masukkan":"enter",
+  "tampilkan":"show", "buka":"open", "tutup":"close", "hapus":"remove", "ganti":"replace", "kembali":"back", "ulangi":"retry",
+  "membantu":"helps", "mengenali":"recognize", "menentukan":"determine", "menampilkan":"display", "memengaruhi":"influence",
+  "membagikan":"share", "memverifikasi":"verify", "diperiksa":"checked", "terdeteksi":"detected", "tersedia":"available",
+  "sebelum":"before", "setelah":"after", "sekarang":"now", "langsung":"immediately", "terlebih":"first", "hanya":"only",
+  "aman":"safe", "resmi":"official", "mencurigakan":"suspicious", "aktif":"active", "lokal":"local", "akhir":"final", "awal":"initial",
+  "tinggi":"high", "rendah":"low", "baru":"new", "utama":"main", "sebenarnya":"actually", "sendiri":"yourself",
+  "gambar":"image", "audio":"audio", "rekaman":"recording", "tautan":"link", "alamat":"address", "situs":"site", "file":"file",
+  "tekanan":"pressure", "emosi":"emotion", "data":"data", "aksi":"action", "klaim":"claim", "pertanyaan":"question", "jawaban":"answer",
+  "latihan":"training", "permainan":"game", "arena":"arena", "garis":"line", "penjaga":"guard", "ronde":"round", "skor":"score",
+  "waktu":"time", "tujuan":"destination", "area":"area", "nama":"name", "penerima":"recipient", "contoh":"example", "simulasi":"simulation",
+  "berhasil":"successfully", "gagal":"failed", "yakin":"confident", "pilihan":"choice", "langkah":"step", "kasus":"case", "metode":"method",
+  "ada":"there is", "agar":"so", "akhirnya":"finally", "akun":"account", "alasan":"reason", "ambil":"take", "anggota":"member",
+  "apakah":"whether", "apa":"what", "bagaimana":"how", "bagian":"part", "bagi":"for", "bahasa":"language", "bantuan":"help",
+  "bantu":"help", "banyak":"many", "baru":"new", "berada":"remains", "berasal":"comes", "berbeda":"different", "berdiri":"stand",
+  "bergerak":"move", "berhenti":"stop", "berikutnya":"next", "bermain":"play", "berpikir":"think", "bertindak":"act", "berubah":"change",
+  "bisa":"can", "buat":"create", "cukup":"enough", "dalam":"within", "dampak":"impact", "dapat":"can", "darurat":"emergency",
+  "datang":"arrives", "dekat":"close", "depan":"front", "diberikan":"provided", "dibagikan":"shared", "dibatalkan":"reversed",
+  "dibaca":"read", "dibangun":"built", "dibantu":"assisted", "dibawa":"carried", "dibuat":"created", "dihapus":"deleted",
+  "dikirim":"sent", "dilakukan":"performed", "dilihat":"viewed", "dilokalkan":"localized", "dimanfaatkan":"exploited",
+  "diminta":"requested", "dipengaruhi":"influenced", "dipilih":"selected", "dipindai":"scanned", "dipotong":"cut", "diproses":"processed",
+  "disimpan":"stored", "disediakan":"provided", "ditampilkan":"displayed", "diterapkan":"applied", "ditindaklanjuti":"acted upon",
+  "dunia":"world", "empat":"four", "fakta":"facts", "hal":"things", "harus":"must", "hari":"day", "hubungi":"contact",
+  "identitas":"identity", "independen":"independent", "ingin":"want", "isi":"contents", "jadi":"become", "jadwal":"schedule",
+  "jaga":"guard", "jika":"if", "jumlah":"number", "kanal":"channel", "karena":"because", "kartu":"card", "keadaan":"situation",
+  "keamanan":"safety", "keaslian":"authenticity", "kebenaran":"truth", "kebiasaan":"habit", "kebutuhan":"needs", "kedua":"both",
+  "keliru":"wrong", "kelompok":"group", "keluarga":"family", "kemungkinan":"possibility", "kerja":"work", "kerugian":"loss",
+  "kesadaran":"awareness", "kesempatan":"opportunity", "ketika":"when", "ketidakpastian":"uncertainty", "klik":"click", "kuat":"strong",
+  "kualitas":"quality", "lain":"other", "langsung":"directly", "layanan":"service", "lebih":"more", "lewat":"through", "lengkap":"complete",
+  "lolos":"pass", "mampu":"able", "mana":"which", "masih":"still", "masyarakat":"people", "membaca":"read", "membantah":"disprove",
+  "membayar":"pay", "membutuhkan":"need", "memastikan":"ensure", "membentuk":"form", "memberi":"provide", "membuka":"reveal",
+  "membuat":"make", "memicu":"trigger", "memindai":"scan", "meminta":"request", "memilih":"choose", "memperkuat":"strengthen",
+  "mencatat":"record", "mencetak":"print", "mendapat":"receive", "mendorong":"push", "menemukan":"find", "mengaku":"claim",
+  "mengangkat":"raise", "mengambil":"take", "mengapa":"why", "mengarah":"lead", "mengatasi":"address", "mengecek":"check",
+  "menghindari":"avoid", "mengikuti":"follow", "mengirim":"send", "mengubah":"change", "menilai":"assess", "menjadi":"become",
+  "menjaga":"protect", "menunjukkan":"show", "menuju":"toward", "menyebarkan":"spread", "menyelesaikan":"complete",
+  "menyerupai":"resemble", "menyatakan":"state", "mereka":"they", "milik":"belongs to", "mirip":"similar", "muncul":"appears",
+  "nyata":"real", "oleh":"by", "orang":"people", "pada":"on", "paling":"most", "palsu":"fake", "pembayaran":"payment",
+  "pembanding":"comparison", "pembicara":"speaker", "pembaruan":"update", "pembuat":"creator", "pemilik":"owner", "penalaran":"reasoning",
+  "penerima":"recipient", "pengalaman":"experience", "pengirim":"sender", "pengumuman":"announcement", "penipuan":"scam",
+  "penjelasan":"explanation", "penilaian":"judgment", "penyebar":"distributor", "perangkat":"device", "percaya":"trust",
+  "permintaan":"request", "pernah":"ever", "perusahaan":"company", "pihak":"party", "pikir":"think", "potongan":"clip",
+  "prioritaskan":"prioritize", "produk":"product", "ruang":"space", "saat":"when", "sama":"same", "scan":"scan", "sebagai":"as",
+  "sebuah":"a", "segera":"immediately", "sejenak":"briefly", "selalu":"always", "selama":"during", "semua":"all", "sendiri":"independently",
+  "sering":"often", "sesuai":"appropriate", "sesudah":"after", "setuju":"agree", "siapa":"who", "situasi":"situation", "sudah":"already",
+  "supaya":"so", "tahap":"stage", "tahu":"know", "tampak":"appears", "terasa":"feels", "terbatas":"limited", "terbentuk":"formed",
+  "terjadi":"happened", "terjebak":"trapped", "terkait":"relevant", "terlihat":"visible", "terlebih":"first", "tersebut":"that",
+  "tetap":"remains", "tiga":"three", "tokoh":"figure", "transfer":"transfer", "ubah":"change", "ukuran":"size", "unggahan":"post",
+  "viral":"viral", "warga":"participants", "waspada":"alert", "wajah":"face", "waktu":"time", "warna":"color",
+};
+
+function currentLanguage() {
+  return document.documentElement.dataset.language === "en" ? "en" : "id";
+}
+
+function updateLanguageToggle(language) {
+  const toggle = document.querySelector("[data-language-toggle]");
+  if (!toggle) return;
+  const isEnglish = language === "en";
+  toggle.querySelector("span").textContent = isEnglish ? "ID" : "EN";
+  toggle.setAttribute("aria-pressed", String(isEnglish));
+  toggle.setAttribute("aria-label", isEnglish ? "Tampilkan situs dalam Bahasa Indonesia" : "Translate website to English");
+  toggle.title = isEnglish ? "Tampilkan situs dalam Bahasa Indonesia" : "Translate website to English";
+}
+
+function protectHadangin(root = document.body) {
+  return root;
+}
+
+function preserveCase(source, translated) {
+  if (source === source.toUpperCase() && /[A-Z]/i.test(source)) return translated.toUpperCase();
+  if (source[0] === source[0]?.toUpperCase()) return translated[0]?.toUpperCase() + translated.slice(1);
+  return translated;
+}
+
+function translateToEnglish(value) {
+  let result = String(value);
+  const exact = GENERATED_ENGLISH[result.trim()];
+  if (exact) return result.replace(result.trim(), exact);
+  const phrases = [...ENGLISH_PHRASES].sort((a, b) => b[0].length - a[0].length);
+  phrases.forEach(([source, translated]) => {
+    result = result.replace(new RegExp(source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), (match) => preserveCase(match, translated));
+  });
+  result = result.replace(/\b[\p{L}]+\b/gu, (word) => {
+    if (/^hadangin$/i.test(word)) return word;
+    const translated = ENGLISH_WORDS[word.toLocaleLowerCase("id")];
+    return translated ? preserveCase(word, translated) : word;
+  });
+  return result;
+}
+
+function applyLanguage(root = document.body) {
+  if (!root || applyingLanguage) return;
+  applyingLanguage = true;
+  const language = currentLanguage();
+  const textNodes = [];
+  if (root.nodeType === Node.TEXT_NODE) textNodes.push(root);
+  else {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+  }
+  textNodes.forEach((node) => {
+    if (!node.nodeValue.trim() || node.parentElement?.closest("script, style, .notranslate, [translate='no']")) return;
+    if (!originalText.has(node)) originalText.set(node, node.nodeValue);
+    const source = originalText.get(node);
+    node.nodeValue = language === "en" ? translateToEnglish(source) : source;
+  });
+  const elements = root.nodeType === Node.ELEMENT_NODE ? [root, ...root.querySelectorAll("[aria-label], [title], [placeholder], [alt]")] : [];
+  elements.forEach((element) => {
+    if (element.closest(".notranslate, [translate='no']")) return;
+    if (!originalAttributes.has(element)) originalAttributes.set(element, {});
+    const originals = originalAttributes.get(element);
+    ["aria-label", "title", "placeholder", "alt"].forEach((attribute) => {
+      if (!element.hasAttribute(attribute)) return;
+      if (!(attribute in originals)) originals[attribute] = element.getAttribute(attribute);
+      element.setAttribute(attribute, language === "en" ? translateToEnglish(originals[attribute]) : originals[attribute]);
+    });
+  });
+  applyingLanguage = false;
+  document.title = language === "en" ? "HADANGIN - AI Context Guard Web Indonesia" : "HADANGIN - AI Context Guard Web Indonesia";
+  const description = document.querySelector('meta[name="description"]');
+  if (description) description.content = language === "en"
+    ? "HADANGIN, a localized AI Context Guard Web prototype that helps users pause, verify, reflect, and evaluate before trusting or sharing digital information."
+    : "HADANGIN, prototipe lokal AI Context Guard Web untuk membantu pengguna pause, verify, reflect, dan evaluate sebelum mempercayai atau membagikan informasi digital.";
+}
+
+function setLanguage(language, persist = true) {
+  const nextLanguage = language === "en" ? "en" : "id";
+  protectHadangin();
+  document.documentElement.dataset.language = nextLanguage;
+  document.documentElement.lang = nextLanguage;
+  updateLanguageToggle(nextLanguage);
+  if (persist) {
+    try { localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage); } catch {}
+  }
+  applyLanguage();
+  setTheme(document.documentElement.dataset.theme, false);
+}
+
+let savedLanguage = "id";
+try { savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY) === "en" ? "en" : "id"; } catch {}
+if (new URLSearchParams(location.search).get("lang") === "en") savedLanguage = "en";
+document.documentElement.dataset.language = savedLanguage;
+document.documentElement.lang = savedLanguage;
+updateLanguageToggle(savedLanguage);
+
+const brandProtectionObserver = new MutationObserver((mutations) => {
+  mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {
+    if (currentLanguage() === "en") applyLanguage(node.nodeType === Node.TEXT_NODE ? node.parentElement : node);
+  }));
+});
+brandProtectionObserver.observe(document.body, { childList: true, subtree: true });
+protectHadangin();
+
 function setTheme(theme, persist = true) {
   const nextTheme = theme === "light" ? "light" : "blue";
   document.documentElement.dataset.theme = nextTheme;
   const toggle = document.querySelector("[data-theme-toggle]");
   const isLight = nextTheme === "light";
   if (toggle) {
-    const label = isLight ? "Gunakan tema biru gelap" : "Gunakan tema putih biru";
+    const label = currentLanguage() === "en"
+      ? (isLight ? "Use dark blue theme" : "Use white and blue theme")
+      : (isLight ? "Gunakan tema biru gelap" : "Gunakan tema putih biru");
     toggle.setAttribute("aria-label", label);
     toggle.setAttribute("aria-pressed", String(isLight));
     toggle.title = label;
@@ -1631,6 +1890,8 @@ document.addEventListener("click", (event) => {
 
   if (target.matches("[data-theme-toggle]")) {
     setTheme(document.documentElement.dataset.theme === "light" ? "blue" : "light");
+  } else if (target.matches("[data-language-toggle]")) {
+    setLanguage(currentLanguage() === "en" ? "id" : "en");
     return;
   }
   if (target.matches(".menu-toggle")) {
@@ -2086,6 +2347,7 @@ document.addEventListener("pointerup", () => {
 window.addEventListener("hashchange", render);
 if (!location.hash) history.replaceState(null, "", "#/verify");
 render();
+if (savedLanguage === "en") setLanguage("en", false);
 
 // Exposed only for the local browser regression harness.
-Object.assign(window, { DEFAULT_MESSAGE, state, render, resetFlow, startScenario, processUploadedFile });
+Object.assign(window, { DEFAULT_MESSAGE, state, render, resetFlow, startScenario, processUploadedFile, setLanguage, translateToEnglish });
