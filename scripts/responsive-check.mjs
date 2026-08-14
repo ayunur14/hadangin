@@ -32,6 +32,11 @@ const viewports = [
 const cases = [
   { name: "verify-home", route: "verify" },
   { name: "training", route: "training" },
+  { name: "community-setup", route: "community", setup: "document.querySelector('[data-action=\"reset-community\"]')?.click();" },
+  { name: "community-session", route: "community", setup: "document.querySelector('[data-action=\"reset-community\"]')?.click(); document.querySelector('[data-action=\"start-community\"]').click();" },
+  { name: "community-jeda", route: "community", setup: "document.querySelector('[data-action=\"reset-community\"]')?.click(); document.querySelector('[data-action=\"start-community\"]').click(); document.querySelector('[data-action=\"community-next\"]').click();" },
+  { name: "community-final-vote", route: "community", setup: "document.querySelector('[data-action=\"reset-community\"]')?.click(); document.querySelector('[data-action=\"start-community\"]').click(); document.querySelector('[data-action=\"community-next\"]').click(); for (const line of ['J','E','D','A']) document.querySelector('[data-community-line=\"' + line + '\"]').click(); document.querySelector('[data-action=\"community-next\"]').click();" },
+  { name: "community-debrief", route: "community", setup: "document.querySelector('[data-action=\"reset-community\"]')?.click(); document.querySelector('[data-action=\"start-community\"]').click(); document.querySelector('[data-action=\"community-next\"]').click(); for (const line of ['J','E','D','A']) document.querySelector('[data-community-line=\"' + line + '\"]').click(); document.querySelector('[data-action=\"community-next\"]').click(); document.querySelector('[data-action=\"community-next\"]').click();" },
   { name: "theme-light-verify", route: "verify", setup: "document.documentElement.dataset.theme = 'light';" },
   { name: "theme-light-training", route: "training", setup: "document.documentElement.dataset.theme = 'light';" },
   { name: "dashboard", route: "dashboard" },

@@ -463,6 +463,7 @@ function showToast(message) {
 function routeFromHash() {
   const path = location.hash.replace(/^#\/?/, "").split("/")[0];
   if (path === "training") return "training";
+  if (path === "community") return "community";
   if (path === "dashboard") return "dashboard";
   if (path === "how-it-works") return "how";
   if (path === "about") return "about";
@@ -510,7 +511,7 @@ function resetFlow() {
 }
 
 function goToRoute(route) {
-  const hashes = { verify: "#/verify", training: "#/training", dashboard: "#/dashboard", how: "#/how-it-works", about: "#/about" };
+  const hashes = { verify: "#/verify", training: "#/training", community: "#/community", dashboard: "#/dashboard", how: "#/how-it-works", about: "#/about" };
   location.hash = hashes[route];
 }
 
@@ -522,6 +523,7 @@ function render(options = {}) {
   state.route = routeFromHash();
   setActiveNav();
   if (state.route === "training") app.innerHTML = trainingPage();
+  else if (state.route === "community") app.innerHTML = communityPage();
   else if (state.route === "dashboard") app.innerHTML = dashboardPage();
   else if (state.route === "how") app.innerHTML = howPage();
   else if (state.route === "about") app.innerHTML = aboutPage();
@@ -1157,6 +1159,99 @@ function resultScreen() {
   </div>`;
 }
 
+const communityAudiences = ["Keluarga", "Dewasa & Lansia", "Sekolah", "Komunitas Umum"];
+const communityDurations = ["30 menit", "60 menit", "90 menit"];
+const communityPacks = [
+  { id: "family", title: "Keluarga & Keuangan", format: "Teks + Voice Note", caseTitle: "Pesan Keluarga Darurat", content: DEFAULT_MESSAGE, note: "Fokus pada urgency, identitas, dan transfer yang sulit dibatalkan." },
+  { id: "public", title: "Hoaks di Ruang Publik", format: "Screenshot + Video", caseTitle: "Informasi Viral", content: "Mereka tidak ingin kamu tahu fakta ini. Sebarkan sekarang sebelum unggahan dihapus!", note: "Fokus pada sumber primer, konteks, dan tekanan untuk membagikan." },
+  { id: "transaction", title: "Aman Bertransaksi", format: "QR + Tautan", caseTitle: "QR Pembayaran", content: "QR di meja kasir sedang bermasalah. Scan kode baru ini agar pembayaran langsung diproses.", note: "Fokus pada penerima, domain tujuan, dan kanal pembayaran resmi." },
+];
+
+const communityState = {
+  mode: "setup",
+  audience: "Dewasa & Lansia",
+  duration: "60 menit",
+  packId: "family",
+  participants: 24,
+  phase: 0,
+  completedLines: [],
+};
+
+function activeCommunityPack() {
+  return communityPacks.find((pack) => pack.id === communityState.packId) || communityPacks[0];
+}
+
+function communityPage() {
+  return `<section class="page-hero community-hero"><div class="page-shell"><p class="eyebrow">HADANGIN &middot; Ruang Komunitas</p><h1>Berlatih Berpikir Kritis Bersama.</h1><p>Fasilitasi permainan J.E.D.A. untuk keluarga, kelompok dewasa, sekolah, atau komunitas. Satu layar, satu kasus, dan ruang diskusi yang aman sebelum mengambil keputusan.</p></div></section>
+    ${communityState.mode === "setup" ? communitySetup() : communitySession()}`;
+}
+
+function communitySetup() {
+  const pack = activeCommunityPack();
+  return `<section class="section community-workspace"><div class="page-shell community-setup-layout">
+    <section class="community-builder" aria-labelledby="community-builder-title">
+      <header><p class="section-kicker">Siapkan sesi</p><h2 id="community-builder-title">Atur ruang latihan</h2><p>Sesuaikan sesi dengan peserta dan konteks diskusi.</p></header>
+      <div class="community-field"><span class="community-field-label">Kelompok peserta</span><div class="community-choice-row">${communityAudiences.map((item) => `<button type="button" class="${communityState.audience === item ? "active" : ""}" data-community-audience="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join("")}</div></div>
+      <div class="community-field"><span class="community-field-label">Durasi sesi</span><div class="community-segmented">${communityDurations.map((item) => `<button type="button" class="${communityState.duration === item ? "active" : ""}" data-community-duration="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join("")}</div></div>
+      <div class="community-field"><span class="community-field-label">Paket kasus</span><div class="community-pack-grid">${communityPacks.map((item) => `<button type="button" class="community-pack ${communityState.packId === item.id ? "active" : ""}" data-community-pack="${item.id}"><span>${escapeHtml(item.format)}</span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.note)}</small></button>`).join("")}</div></div>
+      <label class="community-number-field" for="community-participants"><span>Perkiraan peserta</span><input id="community-participants" type="number" min="4" max="120" value="${communityState.participants}" inputmode="numeric" /><small>4-120 orang</small></label>
+      <button class="button community-start-button" type="button" data-action="start-community">Buat Ruang Komunitas <span aria-hidden="true">&#8594;</span></button>
+    </section>
+    <aside class="community-session-preview" aria-label="Ringkasan sesi yang akan dibuat">
+      <div class="community-preview-head"><span>Pratinjau sesi</span><i>Mode fasilitator lokal</i></div>
+      <div class="community-preview-case"><small>Kasus pembuka</small><strong>${escapeHtml(pack.caseTitle)}</strong><blockquote>${escapeHtml(pack.content)}</blockquote></div>
+      <dl><div><dt>Peserta</dt><dd>${escapeHtml(communityState.audience)}</dd></div><div><dt>Durasi</dt><dd>${escapeHtml(communityState.duration)}</dd></div><div><dt>Format</dt><dd>${escapeHtml(pack.format)}</dd></div></dl>
+      <div class="community-preview-path"><span>Voting Awal</span><i></i><span>J.E.D.A.</span><i></i><span>AI Lens</span><i></i><span>Debrief</span></div>
+      <p>Gunakan skenario yang tersedia. Hindari menampilkan pesan pribadi peserta pada layar bersama.</p>
+    </aside>
+  </div></section>`;
+}
+
+function communitySession() {
+  const phases = ["Voting Awal", "Diskusi J.E.D.A.", "Voting Akhir", "Debrief"];
+  const pack = activeCommunityPack();
+  return `<section class="community-live"><div class="page-shell">
+    <div class="community-live-topbar"><div><span>Kode ruang</span><strong>HAD-204</strong><small>Mode fasilitator lokal</small></div><div class="community-phase-track">${phases.map((item, index) => `<span class="${index < communityState.phase ? "done" : index === communityState.phase ? "active" : ""}">${index < communityState.phase ? "&#10003;" : index + 1}<small>${item}</small></span>`).join("")}</div><button class="button button-ghost button-small" type="button" data-action="reset-community">Akhiri Sesi</button></div>
+    ${communityPhase(pack)}
+  </div></section>`;
+}
+
+function communityVoteBars(finalVote = false) {
+  const distribution = finalVote ? [["Lanjut", 9], ["Verifikasi Dulu", 57], ["Berhenti", 25], ["Belum Yakin", 9]] : [["Lanjut", 42], ["Verifikasi Dulu", 28], ["Berhenti", 12], ["Belum Yakin", 18]];
+  return `<div class="community-votes">${distribution.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><i><b style="width:${value}%"></b></i><strong>${Math.max(1, Math.round(communityState.participants * value / 100))}</strong></div>`).join("")}</div>`;
+}
+
+function communityPhase(pack) {
+  if (communityState.phase === 0) {
+    return `<div class="community-stage-layout"><section class="community-projection"><div class="projection-label"><span>Ditampilkan kepada peserta</span><b>${escapeHtml(pack.format)}</b></div><p class="projection-source">${escapeHtml(pack.caseTitle)}</p><blockquote>${escapeHtml(pack.content)}</blockquote><div class="projection-question">Apa respons pertamamu jika menerima informasi ini?</div></section><aside class="community-facilitator-panel"><p class="section-kicker">Penilaian awal</p><h2>Respons sebelum petunjuk diberikan</h2><p>Jumlah di bawah adalah dataset demo sesuai ${communityState.participants} peserta.</p>${communityVoteBars(false)}<button class="button" type="button" data-action="community-next">Mulai Diskusi J.E.D.A. &#8594;</button></aside></div>`;
+  }
+  if (communityState.phase === 1) {
+    const lines = [
+      ["J", "Jeda", "Tekanan apa yang membuat kita ingin segera bereaksi?"],
+      ["E", "Emosi", "Emosi siapa yang sedang dipengaruhi dan bagaimana caranya?"],
+      ["D", "Data", "Bukti independen apa yang perlu dicari?"],
+      ["A", "Aksi", "Apa risiko tindakan dan alternatif yang lebih aman?"],
+    ];
+    const complete = communityState.completedLines.length === lines.length;
+    return `<section class="community-jeda-stage"><header><p class="section-kicker">Empat pos diskusi</p><h2>Bergerak melewati garis nalar.</h2><p>Klik setiap pos setelah kelompok menyelesaikan diskusinya.</p></header><div class="community-jeda-lines">${lines.map(([letter, title, question], index) => `<button type="button" class="${communityState.completedLines.includes(letter) ? "complete" : ""}" data-community-line="${letter}"><span>${letter}</span><small>POS 0${index + 1}</small><strong>${title}</strong><p>${question}</p><i>${communityState.completedLines.includes(letter) ? "Selesai" : "Tandai selesai"}</i></button>`).join("")}</div><div class="community-stage-actions"><span>${communityState.completedLines.length} dari 4 pos selesai</span><button class="button" type="button" data-action="community-next" ${complete ? "" : "disabled"}>Buka Voting Akhir &#8594;</button></div></section>`;
+  }
+  if (communityState.phase === 2) {
+    return `<div class="community-stage-layout"><section class="community-projection final"><div class="projection-label"><span>Voting setelah J.E.D.A.</span><b>Human Final</b></div><h2>Apakah keputusan kelompok berubah?</h2><p>Bandingkan respons akhir dengan keputusan sebelum diskusi.</p><div class="community-shift"><div><small>Sebelum</small><strong>42%</strong><span>langsung lanjut</span></div><i aria-hidden="true">&#8594;</i><div><small>Sesudah</small><strong>82%</strong><span>verifikasi atau berhenti</span></div></div></section><aside class="community-facilitator-panel"><p class="section-kicker">Voting akhir</p><h2>Keputusan kelompok</h2>${communityVoteBars(true)}<button class="button button-teal" type="button" data-action="community-next">Lihat Debrief &#8594;</button></aside></div>`;
+  }
+  return `<section class="community-debrief"><header><p class="section-kicker">Ringkasan sesi</p><h2>Kelompok memberi ruang lebih besar untuk verifikasi.</h2><p>Hasil berikut adalah data demo yang menunjukkan format laporan ketika backend multi-perangkat tersedia.</p></header><div class="community-impact-grid"><article><span>Perubahan aman</span><strong>+54%</strong><p>Peserta beralih ke verifikasi atau berhenti.</p></article><article><span>Pos selesai</span><strong>4/4</strong><p>Semua pertanyaan J.E.D.A. didiskusikan.</p></article><article><span>Peserta</span><strong>${communityState.participants}</strong><p>${escapeHtml(communityState.audience)} &middot; ${escapeHtml(communityState.duration)}</p></article></div><div class="community-learning"><div><strong>Temuan diskusi</strong><p>Tekanan waktu dan identitas pengirim menjadi dua sinyal yang paling cepat dikenali. Pemeriksaan bukti independen masih perlu dilatih.</p></div><div><strong>Tindak lanjut</strong><p>Ulangi latihan dengan paket media berbeda dan minta peserta membawa satu strategi verifikasi untuk dipraktikkan di rumah.</p></div></div><div class="community-stage-actions"><button class="button button-secondary" type="button" data-action="download-community-kit">Unduh Panduan Sesi</button><button class="button" type="button" data-action="reset-community">Buat Sesi Baru</button></div></section>`;
+}
+
+function downloadCommunityKit() {
+  const pack = activeCommunityPack();
+  const guide = `PANDUAN SESI HADANGIN\n\nAudiens: ${communityState.audience}\nDurasi: ${communityState.duration}\nPeserta: ${communityState.participants}\nPaket: ${pack.title}\nKasus: ${pack.caseTitle}\n\nALUR\n1. Voting awal tanpa petunjuk AI.\n2. Jeda: kenali tekanan untuk segera bereaksi.\n3. Emosi: identifikasi emosi yang sedang dipengaruhi.\n4. Data: tentukan bukti independen yang perlu dicari.\n5. Aksi: nilai risiko dan alternatif yang lebih aman.\n6. Voting akhir dan debrief.\n\nPRIVASI\nGunakan skenario yang telah dianonimkan. Jangan tampilkan pesan pribadi peserta pada layar bersama.\n`;
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([guide], { type: "text/plain;charset=utf-8" }));
+  link.download = "panduan-sesi-hadangin.txt";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 0);
+  showToast("Panduan sesi berhasil diunduh.");
+}
+
 const dashboardData = {
   summary: [
     ["Pemeriksaan simulatif", "128", "+24 minggu ini"],
@@ -1301,6 +1396,29 @@ document.addEventListener("click", (event) => {
     document.getElementById(target.dataset.scrollTo)?.scrollIntoView({ behavior: "smooth" });
     return;
   }
+  if (target.dataset.communityAudience) {
+    communityState.audience = target.dataset.communityAudience;
+    render({ preserveScroll: true });
+    return;
+  }
+  if (target.dataset.communityDuration) {
+    communityState.duration = target.dataset.communityDuration;
+    render({ preserveScroll: true });
+    return;
+  }
+  if (target.dataset.communityPack) {
+    communityState.packId = target.dataset.communityPack;
+    render({ preserveScroll: true });
+    return;
+  }
+  if (target.dataset.communityLine) {
+    const line = target.dataset.communityLine;
+    communityState.completedLines = communityState.completedLines.includes(line)
+      ? communityState.completedLines.filter((item) => item !== line)
+      : [...communityState.completedLines, line];
+    render({ preserveScroll: true });
+    return;
+  }
   if (target.dataset.inputType) {
     const textarea = document.querySelector("#content-input");
     if (textarea) state.content = textarea.value.trim();
@@ -1371,7 +1489,26 @@ document.addEventListener("click", (event) => {
 
   const action = target.dataset.action;
   if (!action) return;
-  if (action === "focus-question") {
+  if (action === "start-community") {
+    const participantInput = document.querySelector("#community-participants");
+    const participants = Math.min(120, Math.max(4, Number(participantInput?.value) || 24));
+    communityState.participants = participants;
+    communityState.mode = "session";
+    communityState.phase = 0;
+    communityState.completedLines = [];
+    render();
+    setTimeout(() => document.querySelector(".community-live")?.scrollIntoView(), 0);
+  } else if (action === "community-next") {
+    communityState.phase = Math.min(3, communityState.phase + 1);
+    render({ preserveScroll: true });
+  } else if (action === "reset-community") {
+    communityState.mode = "setup";
+    communityState.phase = 0;
+    communityState.completedLines = [];
+    render();
+  } else if (action === "download-community-kit") {
+    downloadCommunityKit();
+  } else if (action === "focus-question") {
     if (!state.gameRoundComplete && state.hadangStep >= 0) {
       blockInformation();
       showToast("Tangkap token informasi terlebih dahulu.");
