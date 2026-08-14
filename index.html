@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="id">
+<html lang="id" data-theme="blue">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,6 +9,11 @@
     />
     <title>HADANGIN - AI Context Guard Web Indonesia</title>
     <link rel="icon" type="image/svg+xml" href="guidance/Logo_only_vector.svg" />
+    <script>
+      try {
+        if (localStorage.getItem("hadangin-theme") === "light") document.documentElement.dataset.theme = "light";
+      } catch {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -37,6 +42,9 @@
           <a data-route="about" href="#/about">Tentang</a>
         </nav>
 
+        <button class="theme-toggle icon-button" type="button" data-theme-toggle aria-label="Gunakan tema putih biru" aria-pressed="false" title="Gunakan tema putih biru">
+          <span class="theme-toggle-icon" aria-hidden="true"></span>
+        </button>
         <a class="button button-small nav-cta" href="#/verify">Mulai Verifikasi</a>
       </div>
     </header>

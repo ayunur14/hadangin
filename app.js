@@ -426,6 +426,24 @@ const app = document.querySelector("#app");
 const toast = document.querySelector("#toast");
 let toastTimer;
 
+function setTheme(theme, persist = true) {
+  const nextTheme = theme === "light" ? "light" : "blue";
+  document.documentElement.dataset.theme = nextTheme;
+  const toggle = document.querySelector("[data-theme-toggle]");
+  const isLight = nextTheme === "light";
+  if (toggle) {
+    const label = isLight ? "Gunakan tema biru gelap" : "Gunakan tema putih biru";
+    toggle.setAttribute("aria-label", label);
+    toggle.setAttribute("aria-pressed", String(isLight));
+    toggle.title = label;
+  }
+  if (persist) {
+    try { localStorage.setItem("hadangin-theme", nextTheme); } catch {}
+  }
+}
+
+setTheme(document.documentElement.dataset.theme, false);
+
 function escapeHtml(value = "") {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -1269,6 +1287,10 @@ document.addEventListener("click", (event) => {
   const target = event.target.closest("button, a");
   if (!target) return;
 
+  if (target.matches("[data-theme-toggle]")) {
+    setTheme(document.documentElement.dataset.theme === "light" ? "blue" : "light");
+    return;
+  }
   if (target.matches(".menu-toggle")) {
     const nav = document.querySelector(".main-nav");
     const open = nav.classList.toggle("open");

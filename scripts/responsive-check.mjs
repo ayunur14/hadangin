@@ -32,6 +32,8 @@ const viewports = [
 const cases = [
   { name: "verify-home", route: "verify" },
   { name: "training", route: "training" },
+  { name: "theme-light-verify", route: "verify", setup: "document.documentElement.dataset.theme = 'light';" },
+  { name: "theme-light-training", route: "training", setup: "document.documentElement.dataset.theme = 'light';" },
   { name: "dashboard", route: "dashboard" },
   { name: "how-it-works", route: "how-it-works" },
   { name: "about", route: "about" },
