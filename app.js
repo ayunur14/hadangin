@@ -1,4 +1,5 @@
 const DEFAULT_MESSAGE = "Nak, Mama kecelakaan. HP Mama rusak. Transfer Rp3 juta sekarang ke rekening ini. Tolong cepat, ya!";
+const HERO_VIDEO_URL = new URL("./assets/hadang-hero-animation.mp4", import.meta.url).href;
 
 const scenarios = [
   {
@@ -474,7 +475,7 @@ function hero() {
   return `
     <section class="hero">
       <video class="hero-video" autoplay muted loop playsinline preload="auto" aria-hidden="true" tabindex="-1">
-        <source src="assets/hadang-hero-animation.mp4" type="video/mp4" />
+        <source src="${HERO_VIDEO_URL}" type="video/mp4" />
       </video>
       <div class="hero-inner">
         <div class="hero-copy">
