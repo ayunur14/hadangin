@@ -136,6 +136,10 @@ async function main() {
   metrics.filesetProbe = filesetProbe;
   const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
   writeFileSync(resolve("visual-checks", "desktop-community-vision.png"), Buffer.from(screenshot.data, "base64"));
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await sleep(300);
+  const mobileScreenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  writeFileSync(resolve("visual-checks", "mobile-community-vision.png"), Buffer.from(mobileScreenshot.data, "base64"));
   console.log(JSON.stringify(metrics, null, 2));
   if (metrics.status === "error" || metrics.liveTracks !== 1 || metrics.videoReadyState < 2 || metrics.horizontalOverflow) process.exitCode = 1;
   cdp.close();
