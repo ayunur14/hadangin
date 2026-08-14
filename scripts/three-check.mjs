@@ -7,6 +7,7 @@ const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const workspace = resolve(import.meta.dirname, "..");
 const output = resolve(workspace, "visual-checks");
 const profile = mkdtempSync(resolve(tmpdir(), "hadang-three-"));
+const appUrl = process.env.HADANG_APP_URL || "http://127.0.0.1:5173/";
 const port = 9444;
 mkdirSync(output, { recursive: true });
 
@@ -78,7 +79,7 @@ try {
   await cdp.send("Page.enable");
   await cdp.send("Runtime.enable");
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
-  await cdp.send("Page.navigate", { url: "http://127.0.0.1:5173/index.html#/training" });
+  await cdp.send("Page.navigate", { url: `${appUrl}#/training` });
   for (let attempt = 0; attempt < 80; attempt += 1) {
     const ready = await evaluate(cdp, `Boolean(document.querySelector('.training-3d-canvas, .training-3d-fallback'))`);
     if (ready) break;

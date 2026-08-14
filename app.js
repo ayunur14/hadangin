@@ -1,5 +1,5 @@
 const DEFAULT_MESSAGE = "Nak, Mama kecelakaan. HP Mama rusak. Transfer Rp3 juta sekarang ke rekening ini. Tolong cepat, ya!";
-const HERO_VIDEO_URL = new URL("./assets/hadang-hero-animation.mp4", import.meta.url).href;
+const HERO_VIDEO_URL = new URL("./assets/tolong_buatkan_video_songnya.mp4", import.meta.url).href;
 
 const scenarios = [
   {

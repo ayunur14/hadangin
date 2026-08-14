@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
 const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const workspace = resolve(import.meta.dirname, "..");
-const profile = resolve(workspace, ".visual-profile");
+const profile = mkdtempSync(resolve(tmpdir(), "hadang-visual-"));
 const output = resolve(workspace, "visual-checks");
 const port = 9333;
 const appUrl = process.env.HADANG_APP_URL || "file:///D:/Ayu%20Nur/unesco/index.html";
@@ -89,6 +90,11 @@ async function click(cdp, selector, value) {
   await sleep(80);
 }
 
+async function openGameQuestion(cdp) {
+  await evaluate(cdp, "state.gameRoundComplete = true; state.questionOpen = true; render();");
+  await sleep(80);
+}
+
 async function screenshot(cdp, name) {
   const result = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
   writeFileSync(resolve(output, name), Buffer.from(result.data, "base64"));
@@ -138,7 +144,7 @@ async function main() {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await sleep(120);
   await click(cdp, '[data-action="enter-arena"]');
-  await evaluate(cdp, `(() => { arenaRuntime.guardY = arenaRuntime.y; arenaRuntime.x = arenaRuntime.guardLeft - .5; return true; })()`);
+  await openGameQuestion(cdp);
   await sleep(220);
   await click(cdp, '[data-multi="pressure"]', "Darurat");
   await screenshot(cdp, "mobile-hadang.png");
@@ -155,16 +161,16 @@ async function main() {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await sleep(120);
   await click(cdp, '[data-action="hadang-next"]');
-  await evaluate(cdp, `(() => { arenaRuntime.guardY = arenaRuntime.y; arenaRuntime.x = arenaRuntime.guardLeft - .5; return true; })()`);
+  await openGameQuestion(cdp);
   await sleep(220);
   await click(cdp, '[data-multi="emotion"]', "Takut");
   await click(cdp, '[data-select="neutral-impact"]', "Ya");
   await click(cdp, '[data-action="hadang-next"]');
-  await evaluate(cdp, `(() => { arenaRuntime.guardY = arenaRuntime.y; arenaRuntime.x = arenaRuntime.guardLeft - .5; return true; })()`);
+  await openGameQuestion(cdp);
   await sleep(220);
   await click(cdp, '[data-select="evidence"]', "Telepon nomor ibu yang tersimpan");
   await click(cdp, '[data-action="hadang-next"]');
-  await evaluate(cdp, `(() => { arenaRuntime.guardY = arenaRuntime.y; arenaRuntime.x = arenaRuntime.guardLeft - .5; return true; })()`);
+  await openGameQuestion(cdp);
   await sleep(220);
   await click(cdp, '[data-select="requested-action"]', "Transfer");
   await click(cdp, '[data-select="consequence"]', "Kehilangan uang");
@@ -192,11 +198,14 @@ async function main() {
   await click(cdp, '[data-select="initial-decision"]', "Verifikasi Dulu");
   await click(cdp, '[data-action="lock-initial"]');
   await click(cdp, '[data-action="enter-arena"]');
+  await openGameQuestion(cdp);
   await click(cdp, '[data-multi="pressure"]', "Tekanan sosial");
   await click(cdp, '[data-action="hadang-next"]');
+  await openGameQuestion(cdp);
   await click(cdp, '[data-multi="emotion"]', "Percaya");
   await click(cdp, '[data-select="neutral-impact"]', "Sedikit");
   await click(cdp, '[data-action="hadang-next"]');
+  await openGameQuestion(cdp);
   const qrMetrics = await evaluate(cdp, `({
     claim: document.querySelector('.split-evidence section p')?.textContent,
     hasCashierEvidence: [...document.querySelectorAll('[data-select="evidence"]')].some((node) => node.textContent.includes('kasir')),
@@ -209,11 +218,14 @@ async function main() {
   await click(cdp, '[data-select="initial-decision"]', "Verifikasi Dulu");
   await click(cdp, '[data-action="lock-initial"]');
   await click(cdp, '[data-action="enter-arena"]');
+  await openGameQuestion(cdp);
   await click(cdp, '[data-multi="pressure"]', "Kesempatan terbatas");
   await click(cdp, '[data-action="hadang-next"]');
+  await openGameQuestion(cdp);
   await click(cdp, '[data-multi="emotion"]', "Harapan");
   await click(cdp, '[data-select="neutral-impact"]', "Ya");
   await click(cdp, '[data-action="hadang-next"]');
+  await openGameQuestion(cdp);
   const jobMetrics = await evaluate(cdp, `({
     claim: document.querySelector('.split-evidence section p')?.textContent,
     hasOfficialHrEvidence: [...document.querySelectorAll('[data-select="evidence"]')].some((node) => node.textContent.includes('situs resmi perusahaan')),
@@ -226,13 +238,17 @@ async function main() {
   await click(cdp, '[data-select="initial-decision"]', "Verifikasi Dulu");
   await click(cdp, '[data-action="lock-initial"]');
   await click(cdp, '[data-action="enter-arena"]');
+  await openGameQuestion(cdp);
   await click(cdp, '[data-multi="pressure"]', "Tidak ada tekanan");
   await click(cdp, '[data-action="hadang-next"]');
+  await openGameQuestion(cdp);
   await click(cdp, '[data-multi="emotion"]', "Tidak yakin");
   await click(cdp, '[data-select="neutral-impact"]', "Tidak");
   await click(cdp, '[data-action="hadang-next"]');
+  await openGameQuestion(cdp);
   await click(cdp, '[data-select="evidence"]', "Pembaruan yang sama di aplikasi resmi");
   await click(cdp, '[data-action="hadang-next"]');
+  await openGameQuestion(cdp);
   await click(cdp, '[data-select="requested-action"]', "Buka aplikasi resmi");
   await click(cdp, '[data-select="consequence"]', "Mengabaikan pengumuman sah");
   await click(cdp, '[data-select="safer-action"]', "Cocokkan dengan aplikasi resmi");
@@ -273,13 +289,17 @@ async function main() {
   await click(cdp, '[data-select="initial-decision"]', "Verifikasi Dulu");
   await click(cdp, '[data-action="lock-initial"]');
   await click(cdp, '[data-action="enter-arena"]');
+  await openGameQuestion(cdp);
   await click(cdp, '[data-multi="pressure"]', "Kesempatan terbatas");
   await click(cdp, '[data-action="hadang-next"]');
+  await openGameQuestion(cdp);
   await click(cdp, '[data-multi="emotion"]', "Percaya");
   await click(cdp, '[data-select="neutral-impact"]', "Ya");
   await click(cdp, '[data-action="hadang-next"]');
+  await openGameQuestion(cdp);
   await click(cdp, '[data-select="evidence"]', "Pernyataan pada kanal resmi tokoh");
   await click(cdp, '[data-action="hadang-next"]');
+  await openGameQuestion(cdp);
   await click(cdp, '[data-select="requested-action"]', "Investasi / pembelian");
   await click(cdp, '[data-select="consequence"]', "Kehilangan uang");
   await click(cdp, '[data-select="safer-action"]', "Periksa kanal resmi tokoh");
