@@ -366,19 +366,11 @@ function activeDetection() {
 }
 
 function analysisProfile() {
-  if (state.trainingScenario) return activeProfile();
-  if (state.inputType === "image") return scenarioProfiles["manipulated-media"];
-  if (state.inputType === "audio") return scenarioProfiles["audio-impersonation"];
-  if (state.inputType === "qr") return scenarioProfiles[state.qrInputMode === "image" ? "qr-payment" : "bank-message"];
-  return activeProfile();
+  return state.trainingScenario ? activeProfile() : adaptiveProfile();
 }
 
 function analysisDetection() {
-  if (state.trainingScenario) return activeDetection();
-  if (state.inputType === "image") return detectionProfiles["manipulated-media"];
-  if (state.inputType === "audio") return detectionProfiles["audio-impersonation"];
-  if (state.inputType === "qr") return detectionProfiles[state.qrInputMode === "image" ? "qr-payment" : "bank-message"];
-  return activeDetection();
+  return state.trainingScenario ? activeDetection() : adaptiveDetection();
 }
 
 function safeHostname(value) {
@@ -387,6 +379,199 @@ function safeHostname(value) {
   } catch {
     return "domain-belum-terbaca";
   }
+}
+
+const adaptiveSignalRules = [
+  { key: "urgency", label: "Tekanan waktu", pattern: /\b(sekarang|segera|cepat|hari ini|30 menit|terakhir|urgent|now|immediately|today|limited time)\b/i },
+  { key: "money", label: "Permintaan finansial", pattern: /\b(transfer|rekening|bayar|pembayaran|deposit|investasi|rp\s?\d+|uang|payment|pay|bank|investment)\b/i },
+  { key: "credential", label: "Data sensitif", pattern: /\b(otp|pin|password|kata sandi|verifikasi identitas|login|kode keamanan|credential)\b/i },
+  { key: "link", label: "Tautan eksternal", pattern: /(https?:\/\/|www\.|bit\.ly|tinyurl|klik tautan|click link)/i },
+  { key: "identity", label: "Klaim identitas", pattern: /\b(mama|ayah|keluarga|bank|polisi|admin|hrd?|perusahaan|kasir|tokoh publik|official|customer service)\b/i },
+  { key: "secrecy", label: "Menghambat verifikasi", pattern: /\b(jangan telepon|jangan bilang|rahasia|jangan cek|jangan tanya|do not call|keep this secret)\b/i },
+  { key: "viral", label: "Tekanan membagikan", pattern: /\b(sebarkan|bagikan|viral|share|forward|sebelum dihapus|mereka menutupi)\b/i },
+  { key: "scarcity", label: "Kelangkaan", pattern: /\b(terbatas|slot terakhir|kesempatan terakhir|hanya hari ini|limited|last chance)\b/i },
+  { key: "emotion", label: "Pemicu emosi", pattern: /\b(kecelakaan|darurat|ancaman|takut|panik|hadiah|menang|gratis|emergency|fear|prize|winner)\b/i },
+];
+
+function clampNumber(value, minimum, maximum) {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function stableHash(value) {
+  return [...String(value)].reduce((hash, character) => ((hash * 31) + character.charCodeAt(0)) >>> 0, 2166136261);
+}
+
+function adaptiveSourceText() {
+  return [state.content, state.fileName, state.mediaContext].filter(Boolean).join(" ").trim();
+}
+
+function adaptiveSignals() {
+  const source = adaptiveSourceText();
+  return adaptiveSignalRules.flatMap((rule) => {
+    const match = source.match(rule.pattern);
+    return match ? [{ ...rule, token: match[0] }] : [];
+  });
+}
+
+function inferAnalysisPreset() {
+  if (state.trainingScenario) return state.scenarioId;
+  const source = adaptiveSourceText().toLowerCase();
+  const matches = (pattern) => pattern.test(source);
+
+  if (state.inputType === "qr" && state.qrInputMode === "image") return "qr-payment";
+  if (state.inputType === "audio") {
+    if (matches(/mama|ayah|keluarga|kecelakaan|transfer|voice.?clone|penyamaran/)) return "audio-impersonation";
+    if (matches(/bank|rekening|otp|login/)) return "bank-message";
+    if (matches(/kerja|lowongan|rekrut|hrd?|deposit/)) return "job-offer";
+    return "generic-audio";
+  }
+  if (state.inputType === "image") {
+    if (matches(/qr|qris|payment|pembayaran|bayar/)) return "qr-payment";
+    if (matches(/bank|rekening|otp|login|verifikasi/)) return "bank-message";
+    if (matches(/kerja|lowongan|rekrut|hrd?|deposit/)) return "job-offer";
+    if (matches(/viral|berita|news|share|forward|unggahan/)) return "viral-info";
+    if (matches(/deepfake|investasi|tokoh|video|wajah|synthetic|manipul/)) return "manipulated-media";
+    if (matches(/mama|ayah|keluarga|kecelakaan|darurat/)) return "family-emergency";
+    return "generic-image";
+  }
+  if (state.inputType === "qr") {
+    if (matches(/career|job|kerja|lowongan|rekrut/)) return "job-offer";
+    if (matches(/news|viral|share|article/)) return "viral-info";
+    return matches(/bank|secure|login|verify|otp|account|rekening/) ? "bank-message" : "generic-link";
+  }
+  if (matches(/pemberitahuan resmi|aplikasi resmi|official notice/)) return "ai-can-be-wrong";
+  if (matches(/bank|rekening|otp|login|diblokir|verifikasi identitas/)) return "bank-message";
+  if (matches(/lowongan|kerja|rekrut|hrd?|gaji|deposit|administrasi/)) return "job-offer";
+  if (matches(/viral|sebarkan|bagikan|share|forward|sebelum dihapus|menutupi fakta/)) return "viral-info";
+  if (matches(/mama|ayah|keluarga|kecelakaan|darurat|transfer/)) return "family-emergency";
+  return "generic-text";
+}
+
+function presetBaseId(preset) {
+  if (preset === "generic-image") return "manipulated-media";
+  if (preset === "generic-audio") return "audio-impersonation";
+  if (preset === "generic-link") return "bank-message";
+  if (preset === "generic-text") return "viral-info";
+  return preset;
+}
+
+function adaptiveInputDescription() {
+  const meta = state.fileMeta || {};
+  if (state.inputType === "image" || (state.inputType === "qr" && state.qrInputMode === "image")) {
+    const dimensions = meta.width ? `${meta.width} x ${meta.height} px` : "dimensi sedang dibaca";
+    return `${state.fileName || "gambar upload"} - ${dimensions}${meta.orientation ? `, ${meta.orientation}` : ""}`;
+  }
+  if (state.inputType === "audio") {
+    const duration = Number.isFinite(meta.duration) ? `${Math.round(meta.duration)} detik` : "durasi belum terbaca";
+    return `${state.fileName || "audio upload"} - ${duration}`;
+  }
+  if (state.inputType === "qr") return safeHostname(state.content);
+  return (state.content || DEFAULT_MESSAGE).slice(0, 120);
+}
+
+function adaptiveTranscript(preset) {
+  if (state.mediaContext) return state.mediaContext;
+  if (preset === "audio-impersonation") return "Nak, ini keluarga. Ada keadaan darurat. Tolong transfer sekarang dan jangan telepon dulu.";
+  if (preset === "bank-message") return "Akun Anda bermasalah. Lakukan verifikasi melalui tautan dan masukkan kode keamanan.";
+  if (preset === "job-offer") return "Lamaran Anda diterima. Bayar biaya administrasi hari ini untuk mengamankan posisi.";
+  return "Isi ucapan belum dapat ditranskripsi tanpa model speech-to-text. Simulasi memakai metadata file dan konteks yang diberikan pengguna.";
+}
+
+function adaptiveProfile() {
+  const preset = inferAnalysisPreset();
+  const base = scenarioProfiles[presetBaseId(preset)] || scenarioProfiles["family-emergency"];
+  const signals = adaptiveSignals();
+  const source = adaptiveSourceText() || DEFAULT_MESSAGE;
+  const seed = stableHash(source);
+  const generic = preset.startsWith("generic-");
+  const heuristicScore = 54 + signals.reduce((score, signal) => score + ({ credential: 12, money: 10, secrecy: 10, urgency: 8, link: 8, identity: 6, viral: 7, scarcity: 6, emotion: 6 }[signal.key] || 4), 0) + (seed % 4);
+  const score = clampNumber(generic ? heuristicScore : Math.round((base.aiScore + heuristicScore) / 2), 52, 95);
+  const fallbackNotices = state.inputType === "image"
+    ? [["File", state.fileName || "Gambar upload"], ["Visual", `${state.fileMeta?.hotspots?.length || 0} area kontras dipetakan lokal`], ["Source", "Asal dan konteks gambar belum dikonfirmasi"], ["Action", "Ajakan perlu dibaca dari konteks lengkap"]]
+    : state.inputType === "audio"
+      ? [["File", state.fileName || "Audio upload"], ["Duration", Number.isFinite(state.fileMeta?.duration) ? `${Math.round(state.fileMeta.duration)} detik` : "Belum terbaca"], ["Identity", "Kemiripan suara bukan bukti identitas"], ["Context", "Transkrip aktual memerlukan speech-to-text"]]
+      : state.inputType === "qr"
+        ? [["Host", safeHostname(state.content)], ["Protocol", state.content.startsWith("https://") ? "HTTPS terdeteksi" : "Koneksi tidak terenkripsi"], ["Identity", "Pemilik tujuan belum dikonfirmasi"], ["Action", "Jangan membuka tautan dari pesan"]]
+        : [["Language", "Klaim memerlukan konteks"], ["Source", "Sumber primer belum terlihat"], ["Identity", "Identitas pengirim perlu dikonfirmasi"], ["Action", "Tentukan tindakan yang sebenarnya diminta"]];
+  const signalNotices = signals.map((signal) => [signal.label, `Kata/frasa terdeteksi: "${signal.token}"`]);
+  const aiNotices = [...signalNotices, ...fallbackNotices].filter((item, index, list) => list.findIndex(([label]) => label === item[0]) === index).slice(0, 4);
+  const excerpt = source.replace(/\s+/g, " ").trim().slice(0, 150);
+  const neutralVersion = preset === "generic-image"
+    ? "Sebuah gambar memuat informasi yang sumber, konteks, dan ajakannya masih perlu diperiksa."
+    : preset === "generic-audio"
+      ? "Sebuah rekaman audio memuat klaim atau permintaan yang belum memiliki konteks lengkap."
+      : preset === "generic-link"
+        ? `Sebuah tautan mengarah ke ${safeHostname(state.content)} dan belum diverifikasi kepemilikannya.`
+        : preset === "generic-text"
+          ? "Sebuah pesan menyampaikan klaim yang belum disertai sumber independen."
+          : base.neutralVersion;
+
+  return {
+    ...base,
+    neutralOriginal: excerpt.toUpperCase(),
+    neutralVersion,
+    claim: generic ? `Konten "${adaptiveInputDescription()}" menyampaikan informasi yang konteks dan sumbernya belum lengkap.` : base.claim,
+    aiNotices,
+    aiLevel: score >= 80 ? "High" : score >= 66 ? "Medium" : "Context Needed",
+    aiScore: score,
+    unknowns: generic ? ["Makna penuh konten tanpa OCR, speech-to-text, atau akses halaman tujuan.", "Identitas pembuat dan sumber asli.", "Konteks sebelum dan sesudah konten.", "Apakah pola visual atau bahasa memiliki penjelasan yang wajar."] : base.unknowns,
+    verification: generic ? ["Cari sumber asli melalui kanal terpisah.", "Periksa identitas pengirim atau penerbit.", "Baca konteks lengkap sebelum bertindak.", "Jangan gunakan skor simulasi sebagai bukti final."] : base.verification,
+  };
+}
+
+function adaptiveHighlightPositions(count, seed) {
+  return Array.from({ length: count }, (_, index) => ({
+    x: 10 + ((seed + index * 29) % 48),
+    y: 15 + ((Math.floor(seed / 7) + index * 23) % 55),
+    w: 28 + ((seed + index * 11) % 20),
+    h: 13 + ((seed + index * 7) % 9),
+  }));
+}
+
+function adaptiveDetection() {
+  const preset = inferAnalysisPreset();
+  const base = detectionProfiles[presetBaseId(preset)] || detectionProfiles["family-emergency"];
+  const profile = adaptiveProfile();
+  const signals = adaptiveSignals();
+  const source = adaptiveSourceText() || DEFAULT_MESSAGE;
+  const meta = state.fileMeta || {};
+  const inputName = adaptiveInputDescription();
+  const generic = preset.startsWith("generic-");
+  const signalDetails = signals.length
+    ? signals.slice(0, 3).map((signal) => ({ label: signal.label, detail: `Sinyal berasal dari kata atau konteks "${signal.token}" pada input.` }))
+    : [
+        { label: "Konteks", detail: "Sumber dan konteks lengkap belum tersedia pada input." },
+        { label: "Identitas", detail: "Pembuat atau pengirim belum dapat dikonfirmasi secara independen." },
+        { label: "Aksi", detail: "Periksa tindakan yang diminta sebelum klik, transfer, scan, atau membagikan." },
+      ];
+  const positions = state.inputType === "image" && meta.hotspots?.length
+    ? meta.hotspots
+    : adaptiveHighlightPositions(signalDetails.length, stableHash(source));
+  const highlights = signalDetails.map((item, index) => ({ ...item, ...(positions[index] || positions[0]) }));
+  const typeLabel = state.inputType === "image" ? "gambar" : state.inputType === "audio" ? "audio" : state.inputType === "qr" ? (state.qrInputMode === "image" ? "QR" : "tautan") : "teks";
+  const signalSummary = profile.aiNotices.map(([label]) => label.toLowerCase()).slice(0, 3).join(", ");
+  let summary = `Pemindaian heuristik lokal menyesuaikan hasil terhadap ${typeLabel} "${inputName}" dan menemukan sinyal ${signalSummary}.`;
+  if (state.inputType === "image" && meta.width) summary += ` Gambar berorientasi ${meta.orientation} dengan ${meta.hotspots?.length || 0} area kontras utama.`;
+  if (state.inputType === "audio" && Number.isFinite(meta.duration)) summary += ` Durasi metadata terbaca ${Math.round(meta.duration)} detik.`;
+  if (generic) summary += " Makna semantik tetap perlu diverifikasi karena backend model belum terhubung.";
+
+  return {
+    ...base,
+    mode: state.inputType === "image" ? "media" : state.inputType === "audio" ? "audio" : state.inputType === "qr" ? (state.qrInputMode === "image" ? "qr" : "link") : base.mode,
+    title: state.inputType === "qr" && state.qrInputMode === "link" ? `Pemetaan risiko ${safeHostname(state.content)}` : `Analisis adaptif: ${state.fileName || typeLabel}`,
+    subtitle: "Simulasi heuristik frontend yang mengikuti input",
+    summary,
+    confidenceLabel: "Adaptive risk signal",
+    highlights,
+    clues: profile.aiNotices.map(([label, value]) => `${label}: ${value}`),
+    reflectiveQuestions: [
+      `Apa sumber independen untuk memeriksa ${state.fileName || safeHostname(state.content) || "konten ini"}?`,
+      "Apakah sinyal yang terlihat cukup untuk membenarkan tindakan yang diminta?",
+      "Apa penjelasan alternatif jika prediksi simulasi ini salah?",
+    ],
+    transcript: adaptiveTranscript(preset),
+    patternLabel: signals.length ? signals.slice(0, 2).map((signal) => signal.label).join(" + ") : "Konteks + identitas",
+  };
 }
 
 function currentScenario() {
@@ -398,6 +583,8 @@ const state = {
   inputType: "text",
   content: DEFAULT_MESSAGE,
   fileName: "",
+  fileMeta: null,
+  mediaContext: "",
   imageDataUrl: "",
   audioDataUrl: "",
   qrImageDataUrl: "",
@@ -746,6 +933,7 @@ function setLanguage(language, persist = true) {
   if (persist) {
     try { localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage); } catch {}
   }
+  if (state.inFlow && state.route === "verify") render({ preserveScroll: true });
   applyLanguage();
   setTheme(document.documentElement.dataset.theme, false);
   window.dispatchEvent(new CustomEvent("hadang:language-change", { detail: { language: nextLanguage } }));
@@ -979,6 +1167,10 @@ function tabButton(type, label) {
   return `<button class="tab ${state.inputType === type ? "active" : ""}" role="tab" aria-selected="${state.inputType === type}" data-input-type="${type}">${label}</button>`;
 }
 
+function mediaContextField(example) {
+  return `<label class="media-context-field" for="media-context-input"><span>Konteks tambahan <i>opsional</i></span><input id="media-context-input" type="text" maxlength="180" value="${escapeHtml(state.mediaContext)}" placeholder="${escapeHtml(example)}" /><small>Membantu simulasi menyesuaikan istilah XAI tanpa mengirim file ke server.</small></label>`;
+}
+
 function inputPane() {
   if (state.inputType === "text") {
     return `<div class="input-zone"><textarea id="content-input" aria-label="Teks atau pesan mencurigakan" placeholder="Tempel pesan atau klaim di sini...">${escapeHtml(state.content)}</textarea></div>`;
@@ -987,7 +1179,7 @@ function inputPane() {
     const modeSwitch = `<div class="media-input-modes" role="group" aria-label="Cara memasukkan QR atau tautan"><button type="button" class="${state.qrInputMode === "link" ? "active" : ""}" data-qr-input-mode="link">Tempel Tautan</button><button type="button" class="${state.qrInputMode === "image" ? "active" : ""}" data-qr-input-mode="image">Upload QR</button></div>`;
     if (state.qrInputMode === "image") {
       if (state.qrImageDataUrl) {
-        return `${modeSwitch}<div class="image-upload-preview qr-upload-preview" data-drop-zone><div class="uploaded-image-frame"><img src="${state.qrImageDataUrl}" alt="Preview QR ${escapeHtml(state.fileName)}" /></div><div class="uploaded-file-meta"><div><span>QR siap diperiksa</span><strong>${escapeHtml(state.fileName)}</strong><small>AI simulasi akan memetakan struktur QR dan tujuan yang terbaca.</small></div><div class="button-row"><label class="button button-secondary button-small" for="file-input">Ganti QR</label><button class="icon-remove" type="button" data-action="remove-qr" aria-label="Hapus QR" title="Hapus QR">&times;</button></div></div><input class="file-input" id="file-input" type="file" accept="image/*" /></div>`;
+        return `${modeSwitch}<div class="image-upload-preview qr-upload-preview" data-drop-zone><div class="uploaded-image-frame"><img src="${state.qrImageDataUrl}" alt="Preview QR ${escapeHtml(state.fileName)}" /></div><div class="uploaded-file-meta"><div><span>QR siap diperiksa</span><strong>${escapeHtml(state.fileName)}</strong><small>AI simulasi akan memetakan struktur QR dan tujuan yang terbaca.</small></div><div class="button-row"><label class="button button-secondary button-small" for="file-input">Ganti QR</label><button class="icon-remove" type="button" data-action="remove-qr" aria-label="Hapus QR" title="Hapus QR">&times;</button></div></div>${mediaContextField("Contoh: QR ditempel di atas kode pembayaran merchant")}<input class="file-input" id="file-input" type="file" accept="image/*" /></div>`;
       }
       return `${modeSwitch}<div class="input-zone" data-drop-zone><div class="upload-content"><div class="upload-symbol" aria-hidden="true">#</div><strong>Upload gambar QR</strong><p>Tarik screenshot atau foto QR ke sini. PNG, JPG, dan WEBP hingga 10 MB.</p><label class="button button-secondary" for="file-input">Pilih Gambar QR</label><input class="file-input" id="file-input" type="file" accept="image/*" /></div></div>`;
     }
@@ -995,12 +1187,13 @@ function inputPane() {
   }
   const isAudio = state.inputType === "audio";
   if (isAudio && state.audioDataUrl) {
-    return `<div class="audio-upload-preview" data-drop-zone><div class="audio-file-head"><div class="audio-file-icon" aria-hidden="true">~</div><div><span>Rekaman siap diperiksa</span><strong>${escapeHtml(state.fileName)}</strong><small>Putar dan dengarkan konteks sebelum memulai.</small></div><button class="icon-remove" type="button" data-action="remove-audio" aria-label="Hapus audio" title="Hapus audio">&times;</button></div>${waveformBars(42, "input-wave")}<audio controls preload="metadata" src="${state.audioDataUrl}">Browser tidak mendukung pemutar audio.</audio><label class="button button-secondary button-small" for="file-input">Ganti Audio</label><input class="file-input" id="file-input" type="file" accept="audio/*" /></div>`;
+    return `<div class="audio-upload-preview" data-drop-zone><div class="audio-file-head"><div class="audio-file-icon" aria-hidden="true">~</div><div><span>Rekaman siap diperiksa</span><strong>${escapeHtml(state.fileName)}</strong><small>Putar dan dengarkan konteks sebelum memulai.</small></div><button class="icon-remove" type="button" data-action="remove-audio" aria-label="Hapus audio" title="Hapus audio">&times;</button></div>${waveformBars(42, "input-wave")}<audio controls preload="metadata" src="${state.audioDataUrl}">Browser tidak mendukung pemutar audio.</audio>${mediaContextField("Contoh: voice note mengaku keluarga dan meminta transfer")}<label class="button button-secondary button-small" for="file-input">Ganti Audio</label><input class="file-input" id="file-input" type="file" accept="audio/*" /></div>`;
   }
   if (!isAudio && state.imageDataUrl) {
     return `<div class="image-upload-preview" data-drop-zone>
       <div class="uploaded-image-frame"><img src="${state.imageDataUrl}" alt="Preview ${escapeHtml(state.fileName)}" /></div>
       <div class="uploaded-file-meta"><div><span>Gambar siap diperiksa</span><strong>${escapeHtml(state.fileName)}</strong><small>Gambar akan tetap terlihat sampai tahap Explainable AI.</small></div><div class="button-row"><label class="button button-secondary button-small" for="file-input">Ganti Gambar</label><button class="icon-remove" type="button" data-action="remove-image" aria-label="Hapus gambar" title="Hapus gambar">&times;</button></div></div>
+      ${mediaContextField("Contoh: screenshot pesan bank meminta OTP melalui tautan")}
       <input class="file-input" id="file-input" type="file" accept="image/*" />
     </div>`;
   }
@@ -1060,7 +1253,8 @@ function inspectionContext() {
     return `<div class="human-image-context"><img src="${state.imageDataUrl}" alt="Gambar yang sedang diperiksa" /><div><span class="label">Gambar yang diperiksa</span><strong>${escapeHtml(state.fileName)}</strong><p>Amati konteks, sumber, detail visual, dan tindakan yang diminta sebelum melihat analisis AI.</p></div></div>`;
   }
   if (state.inputType === "audio" && state.audioDataUrl) {
-    return `<div class="human-audio-context"><div><span class="label">Rekaman yang diperiksa</span><strong>${escapeHtml(state.fileName)}</strong>${waveformBars(38, "human-wave")}<audio controls preload="metadata" src="${state.audioDataUrl}"></audio></div><div class="transcript-preview"><span>Transkrip simulasi</span><p>"Nak, ini Mama. Nomor Mama sedang bermasalah. Tolong transfer sekarang dan jangan telepon dulu."</p><small>Transkrip ini adalah contoh frontend, bukan hasil speech-to-text aktual.</small></div></div>`;
+    const detection = analysisDetection();
+    return `<div class="human-audio-context"><div><span class="label">Rekaman yang diperiksa</span><strong>${escapeHtml(state.fileName)}</strong>${waveformBars(38, "human-wave")}<audio controls preload="metadata" src="${state.audioDataUrl}"></audio></div><div class="transcript-preview"><span>Transkrip simulasi adaptif</span><p>"${escapeHtml(detection.transcript)}"</p><small>Disusun dari nama file dan konteks opsional, bukan hasil speech-to-text aktual.</small></div></div>`;
   }
   if (state.inputType === "qr" && state.qrInputMode === "image" && state.qrImageDataUrl) {
     return `<div class="human-image-context"><img src="${state.qrImageDataUrl}" alt="QR yang sedang diperiksa" /><div><span class="label">QR yang diperiksa</span><strong>${escapeHtml(state.fileName)}</strong><p>Periksa lokasi QR, pemilik media, serta nama penerima sebelum memindai atau membayar.</p></div></div>`;
@@ -1324,7 +1518,7 @@ function resetArenaRound(resetLives = false) {
 }
 
 function hadangStepContent() {
-  const profile = activeProfile();
+  const profile = analysisProfile();
   if (state.hadangStep === 0) {
     const choices = ["Deadline", "Darurat", "Ancaman", "Hadiah", "Kesempatan terbatas", "Tekanan sosial", "Tidak ada tekanan"];
     return `<header><p class="section-kicker">Garis 01 - Jeda</p><h2>Berhenti sejenak dari dorongan bertindak.</h2><p>Apa yang membuat informasi ini terasa harus segera ditindaklanjuti?</p></header>
@@ -1377,14 +1571,16 @@ function detectionPanel(profile, detection) {
     : null);
   let previewContent = `${detectionPreviewContent(detection, previewText)}${detection.highlights.map((item, index) => `<span class="red-box" style="--x:${item.x}%; --y:${item.y}%; --w:${item.w}%; --h:${item.h}%"><b>${index + 1}</b></span>`).join("")}`;
   if (isImageAnalysis) previewContent = `<div class="xai-image-stage">${isUploadedImage ? `<img class="xai-source-image" src="${state.imageDataUrl}" alt="Gambar upload dengan penjelasan XAI" />` : trainingDetectionVisual(currentScenario())}${state.xaiMode === "heatmap" ? `<div class="xai-heatmap" aria-hidden="true">${detection.highlights.map((item) => `<span style="--hx:${item.x + item.w / 2}%; --hy:${item.y + item.h / 2}%; --hs:${Math.max(item.w, item.h) * 1.7}%"></span>`).join("")}</div>` : detection.highlights.map((item, index) => `<span class="red-box" style="--x:${item.x}%; --y:${item.y}%; --w:${item.w}%; --h:${item.h}%"><b>${index + 1}</b></span>`).join("")}</div>`;
-  if (isAudioAnalysis) previewContent = audioAnalysisPreview();
-  if (isQrAnalysis) previewContent = qrAnalysisPreview();
+  if (isAudioAnalysis) previewContent = audioAnalysisPreview(detection);
+  if (isQrAnalysis) previewContent = qrAnalysisPreview(detection);
+  const adaptiveNote = !state.trainingScenario ? `<div class="adaptive-analysis-note"><span>ADAPTIVE FRONTEND</span><div><strong>Penjelasan mengikuti input yang kamu berikan.</strong><p>Istilah XAI disusun dari jenis input, kata kunci, domain, dan metadata file. Ini simulasi heuristik lokal, bukan hasil model AI produksi.</p><small>${escapeHtml(adaptiveInputDescription())}</small></div></div>` : "";
   return `<section class="detection-panel" aria-label="Explainable AI detection simulation">
     <div class="detection-header">
       <div><p class="section-kicker">Explainable detection</p><h3>${escapeHtml(detection.title)}</h3><p>${escapeHtml(detection.subtitle)}</p></div>
       <div class="confidence-badge"><span>${escapeHtml(detection.confidenceLabel)}</span><strong>${profile.aiScore}%</strong></div>
     </div>
     ${analysisModeBar(isImageAnalysis, isAudioAnalysis, isQrAnalysis)}
+    ${adaptiveNote}
     <div class="detection-grid">
       <div class="detection-preview ${escapeHtml(detection.mode)}">
         <div class="preview-toolbar"><span></span><span></span><span></span><strong>AI Context Scan</strong></div>
@@ -1423,21 +1619,29 @@ function analysisModeBar(isImage, isAudio, isQr) {
   return "";
 }
 
-function audioAnalysisPreview() {
-  return `<div class="audio-analysis-stage"><div class="audio-analysis-meta"><span>VOICE SAMPLE / 00:18</span><b>${state.audioXaiMode === "voice" ? "Pola suara" : "Spektrum frekuensi"}</b></div><div class="${state.audioXaiMode === "spectrogram" ? "spectrogram-panel" : "voice-pattern-panel"}">${waveformBars(58, "analysis-wave")}<span class="audio-marker marker-one">1</span><span class="audio-marker marker-two">2</span><span class="audio-marker marker-three">3</span></div><div class="audio-time-axis"><span>00:00</span><span>00:06</span><span>00:12</span><span>00:18</span></div>${state.audioDataUrl ? `<audio controls preload="metadata" src="${state.audioDataUrl}"></audio>` : `<div class="audio-simulation-status"><i></i>Sampel audio skenario aktif</div>`}<div class="ai-transcript"><span>Transkrip simulasi</span><p>Nak, ini Mama. Nomor Mama bermasalah. <mark>Tolong transfer sekarang</mark> dan <mark>jangan telepon dulu</mark>.</p></div></div>`;
+function formatMediaTime(seconds) {
+  const value = Math.max(0, Math.round(seconds));
+  return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
 }
 
-function qrAnalysisPreview() {
+function audioAnalysisPreview(detection) {
+  const duration = Number.isFinite(state.fileMeta?.duration) ? Math.max(1, state.fileMeta.duration) : 18;
+  const ticks = [0, duration / 3, duration * 2 / 3, duration];
+  return `<div class="audio-analysis-stage"><div class="audio-analysis-meta"><span>VOICE SAMPLE / ${formatMediaTime(duration)}</span><b>${state.audioXaiMode === "voice" ? "Pola suara" : "Spektrum frekuensi"}</b></div><div class="${state.audioXaiMode === "spectrogram" ? "spectrogram-panel" : "voice-pattern-panel"}">${waveformBars(58, "analysis-wave")}<span class="audio-marker marker-one">1</span><span class="audio-marker marker-two">2</span><span class="audio-marker marker-three">3</span></div><div class="audio-time-axis">${ticks.map((tick) => `<span>${formatMediaTime(tick)}</span>`).join("")}</div>${state.audioDataUrl ? `<audio controls preload="metadata" src="${state.audioDataUrl}"></audio>` : `<div class="audio-simulation-status"><i></i>Sampel audio skenario aktif</div>`}<div class="ai-transcript"><span>Transkrip simulasi adaptif</span><p>${escapeHtml(detection.transcript)}</p><small>Bukan transkripsi otomatis. Tambahkan konteks pada layar sebelumnya agar simulasi lebih spesifik.</small></div></div>`;
+}
+
+function qrAnalysisPreview(detection) {
   const isImage = state.qrInputMode === "image" && (state.qrImageDataUrl || state.trainingScenario);
+  const hostname = isImage ? "tujuan-belum-terbaca" : safeHostname(state.content);
   if (state.qrXaiMode === "redirect") {
-    return `<div class="redirect-analysis"><span class="analysis-label">SIMULATED REDIRECT TRACE</span><div class="redirect-chain"><div><i>1</i><span>Input pengguna<small>${isImage ? "QR image decode" : escapeHtml(safeHostname(state.content))}</small></span></div><b></b><div class="warn"><i>2</i><span>Short redirect<small>tracking-gateway.example</small></span></div><b></b><div class="danger"><i>3</i><span>Form kredensial<small>secure-login-check.example</small></span></div></div><p>Rantai ini adalah visualisasi dataset simulasi. HADANGIN tidak membuka alamat tersebut.</p></div>`;
+    return `<div class="redirect-analysis"><span class="analysis-label">SIMULATED REDIRECT TRACE</span><div class="redirect-chain"><div><i>1</i><span>Input pengguna<small>${isImage ? escapeHtml(state.fileName || "QR image") : escapeHtml(hostname)}</small></span></div><b></b><div class="warn"><i>2</i><span>Pemeriksaan tujuan<small>Pemilik domain perlu dikonfirmasi</small></span></div><b></b><div class="danger"><i>3</i><span>Pola permintaan<small>${escapeHtml(detection.patternLabel)}</small></span></div></div><p>Rantai ini adalah visualisasi heuristik simulasi. HADANGIN tidak membuka alamat tersebut.</p></div>`;
   }
   if (isImage) {
-    return `<div class="qr-image-analysis">${state.qrImageDataUrl ? `<img src="${state.qrImageDataUrl}" alt="QR upload dalam pemetaan risiko" />` : `<div class="qr-case-scan"><div class="qr-pattern" aria-label="QR skenario latihan"><span></span><span></span><span></span></div><small>STIKER TERDETEKSI</small></div>`}<span class="qr-scan-line"></span><span class="qr-focus focus-a">1</span><span class="qr-focus focus-b">2</span></div><div class="qr-destination"><span>Tujuan terbaca / simulasi</span><strong>merchant-pay-check.example</strong><small>Nama penerima belum cocok dengan merchant</small></div>`;
+    const destination = state.mediaContext || "Penerima belum terkonfirmasi";
+    return `<div class="qr-image-analysis">${state.qrImageDataUrl ? `<img src="${state.qrImageDataUrl}" alt="QR upload dalam pemetaan risiko" />` : `<div class="qr-case-scan"><div class="qr-pattern" aria-label="QR skenario latihan"><span></span><span></span><span></span></div><small>STIKER TERDETEKSI</small></div>`}<span class="qr-scan-line"></span><span class="qr-focus focus-a">1</span><span class="qr-focus focus-b">2</span></div><div class="qr-destination"><span>Konteks tujuan / simulasi</span><strong>${escapeHtml(destination)}</strong><small>${escapeHtml(state.fileName || "Tujuan QR belum didekode")}</small></div>`;
   }
-  const hostname = safeHostname(state.content);
   const parts = state.content.replace(/^https?:\/\//i, "").split(/([./?=&-])/).filter(Boolean);
-  return `<div class="url-risk-analysis"><span class="analysis-label">URL TOKEN RISK MAP</span><div class="url-token-map">${parts.slice(0, 18).map((part, index) => `<span class="${index === 0 || /login|verify|secure|otp/i.test(part) ? "flagged" : ""}">${escapeHtml(part)}</span>`).join("")}</div><div class="domain-facts"><div><span>Host terbaca</span><strong>${escapeHtml(hostname)}</strong></div><div><span>Pola terdeteksi</span><strong>Login + urgency</strong></div><div><span>Status</span><strong>Perlu verifikasi</strong></div></div></div>`;
+  return `<div class="url-risk-analysis"><span class="analysis-label">URL TOKEN RISK MAP</span><div class="url-token-map">${parts.slice(0, 18).map((part, index) => `<span class="${index === 0 || /login|verify|secure|otp/i.test(part) ? "flagged" : ""}">${escapeHtml(part)}</span>`).join("")}</div><div class="domain-facts"><div><span>Host terbaca</span><strong>${escapeHtml(hostname)}</strong></div><div><span>Pola terdeteksi</span><strong>${escapeHtml(detection.patternLabel)}</strong></div><div><span>Status</span><strong>Perlu verifikasi</strong></div></div></div>`;
 }
 
 function detectionPreviewContent(detection, previewText) {
@@ -1467,13 +1671,13 @@ function directDetectionResult() {
   ];
   const verdict = profile.aiScore >= 80 ? "Risiko tinggi - verifikasi sebelum bertindak" : profile.aiScore >= 70 ? "Perlu verifikasi lebih lanjut" : "Sinyal sedang - periksa bukti resmi";
   return `<section class="direct-detection-page"><div class="page-shell">
-    <div class="direct-result-topbar"><button class="button button-ghost button-small" type="button" data-action="back-to-input">&#8592; Ganti Konten</button><span>Mode Deteksi AI &middot; Explainable AI</span><button class="button button-small" type="button" data-action="switch-to-plus">Lanjut AI Plus &#8594;</button></div>
+    <div class="direct-result-topbar"><span>Mode Deteksi AI &middot; Explainable AI</span></div>
     <header class="direct-result-header"><div><p class="section-kicker">Hasil prediksi langsung</p><h1>AI menghadang empat sinyal sebelum tindakan.</h1><p>Hasil ini melewati latihan Human First dan game. Gunakan penjelasan XAI untuk menentukan apa yang masih perlu diverifikasi.</p></div><div class="direct-verdict"><span>${escapeHtml(detection.confidenceLabel)}</span><strong>${profile.aiScore}%</strong><p>${escapeHtml(verdict)}</p></div></header>
     <section class="ai-court-board" aria-label="Papan sinyal J.E.D.A. hasil prediksi AI"><div class="court-entry"><span>INPUT</span><i></i></div><div class="court-track">${arenaSignals.map(([letter, name, detail, score, tone], index) => `<article class="court-signal ${tone}"><div class="court-line"></div><span class="court-letter">${letter}</span><div><small>GARIS 0${index + 1}</small><strong>${name}</strong><p>${escapeHtml(detail)}</p><div class="court-score"><i style="--score:${score}%"></i><b>${score}</b></div></div></article>`).join("")}</div><div class="court-gate"><span>AKSI</span><strong>${profile.aiScore >= 80 ? "TAHAN" : "CEK"}</strong></div></section>
     ${detectionPanel(profile, detection)}
     <div class="ai-notice-grid">${profile.aiNotices.map(([label, value]) => `<div class="signal-card"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div>`).join("")}</div>
     <div class="ai-columns direct-ai-columns"><section class="info-panel unknown"><h3>Yang belum dapat dipastikan AI</h3><ul>${profile.unknowns.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section><section class="info-panel verify"><h3>Langkah verifikasi berikutnya</h3><ul>${profile.verification.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section></div>
-    <div class="direct-result-footer"><div><strong>Butuh penilaian yang lebih lengkap?</strong><p>Masuk ke AI Plus untuk membentuk penilaian awal, memainkan J.E.D.A., lalu membandingkannya dengan AI.</p></div><button class="button" type="button" data-action="switch-to-plus">Mulai AI Plus &#8594;</button></div>
+    <div class="direct-result-footer"><div><strong>Butuh penilaian yang lebih lengkap?</strong><p>Masuk ke AI Plus untuk membentuk penilaian awal, memainkan J.E.D.A., lalu membandingkannya dengan AI.</p></div><div class="direct-result-footer-actions"><button class="button button-secondary" type="button" data-action="back-to-input">&#8592; Ganti Konten</button><button class="button" type="button" data-action="switch-to-plus">Mulai AI Plus &#8594;</button></div></div>
   </div></section>`;
 }
 
@@ -2027,6 +2231,8 @@ function startScenario(id) {
   state.inputType = scenario.inputType || "text";
   state.qrInputMode = scenario.inputMode || "link";
   state.fileName = "";
+  state.fileMeta = null;
+  state.mediaContext = "";
   state.imageDataUrl = "";
   state.audioDataUrl = "";
   state.qrImageDataUrl = "";
@@ -2163,10 +2369,13 @@ document.addEventListener("click", (event) => {
     const textarea = document.querySelector("#content-input");
     if (textarea) state.content = textarea.value.trim();
     const nextType = target.dataset.inputType;
-    if (nextType !== state.inputType && ["image", "audio"].includes(nextType)) {
+    if (nextType !== state.inputType && ["image", "audio", "qr"].includes(nextType)) {
       state.fileName = "";
+      state.fileMeta = null;
+      state.mediaContext = "";
       state.imageDataUrl = "";
       state.audioDataUrl = "";
+      state.qrImageDataUrl = "";
       state.content = "";
     }
     if (nextType === "text" && !state.content) state.content = DEFAULT_MESSAGE;
@@ -2197,6 +2406,8 @@ document.addEventListener("click", (event) => {
     state.qrInputMode = target.dataset.qrInputMode;
     state.qrXaiMode = "risk";
     state.fileName = "";
+    state.fileMeta = null;
+    state.mediaContext = "";
     state.qrImageDataUrl = "";
     state.content = "";
     state.scenarioId = state.qrInputMode === "image" ? "qr-payment" : "bank-message";
@@ -2344,22 +2555,25 @@ document.addEventListener("click", (event) => {
     render({ preserveScroll: true });
   } else if (action === "remove-image") {
     state.fileName = "";
+    state.fileMeta = null;
+    state.mediaContext = "";
     state.imageDataUrl = "";
     state.content = "";
-    render();
-    setTimeout(() => document.getElementById("verify-tool")?.scrollIntoView(), 0);
+    render({ preserveScroll: true });
   } else if (action === "remove-audio") {
     state.fileName = "";
+    state.fileMeta = null;
+    state.mediaContext = "";
     state.audioDataUrl = "";
     state.content = "";
-    render();
-    setTimeout(() => document.getElementById("verify-tool")?.scrollIntoView(), 0);
+    render({ preserveScroll: true });
   } else if (action === "remove-qr") {
     state.fileName = "";
+    state.fileMeta = null;
+    state.mediaContext = "";
     state.qrImageDataUrl = "";
     state.content = "";
-    render();
-    setTimeout(() => document.getElementById("verify-tool")?.scrollIntoView(), 0);
+    render({ preserveScroll: true });
   } else if (action === "direct-ai" || action === "start-check") {
     const textarea = document.querySelector("#content-input");
     if (textarea?.value.trim()) state.content = textarea.value.trim();
@@ -2367,6 +2581,7 @@ document.addEventListener("click", (event) => {
     if (state.inputType === "qr" && state.qrInputMode === "image" && !state.fileName) return showToast("Pilih gambar QR terlebih dahulu.");
     if (state.inputType === "qr" && state.qrInputMode === "link" && !state.content.trim().match(/^https?:\/\//i)) return showToast("Masukkan tautan yang valid, diawali http:// atau https://.");
     if (!state.content && !state.fileName) return showToast("Masukkan konten atau pilih file terlebih dahulu.");
+    state.scenarioId = inferAnalysisPreset();
     state.directDetection = action === "direct-ai";
     state.inFlow = true;
     state.stage = state.directDetection ? 4 : 2;
@@ -2434,10 +2649,14 @@ document.addEventListener("click", (event) => {
 document.addEventListener("input", (event) => {
   if (event.target.matches("#content-input")) {
     state.content = event.target.value;
-    state.scenarioId = state.inputType === "qr" ? "bank-message" : "family-emergency";
+    state.scenarioId = inferAnalysisPreset();
     state.aiWrong = false;
     state.trainingScenario = false;
     state.casePrompt = "";
+  }
+  if (event.target.matches("#media-context-input")) {
+    state.mediaContext = event.target.value;
+    state.scenarioId = inferAnalysisPreset();
   }
   if (event.target.dataset.range === "initial-confidence") {
     state.initialConfidence = Number(event.target.value);
@@ -2457,6 +2676,83 @@ document.addEventListener("change", (event) => {
   }
 });
 
+function inspectImageFile(dataUrl, file) {
+  return new Promise((resolve) => {
+    const image = new Image();
+    const basicMeta = { size: file.size, type: file.type };
+    image.addEventListener("load", () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 96;
+        canvas.height = Math.max(48, Math.min(96, Math.round(96 * image.naturalHeight / image.naturalWidth)));
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        if (!context) return resolve(basicMeta);
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const cellsX = 4;
+        const cellsY = 3;
+        const cellWidth = Math.floor(canvas.width / cellsX);
+        const cellHeight = Math.floor(canvas.height / cellsY);
+        const cells = [];
+        let totalLuma = 0;
+        let totalPixels = 0;
+        for (let row = 0; row < cellsY; row += 1) {
+          for (let column = 0; column < cellsX; column += 1) {
+            const pixels = context.getImageData(column * cellWidth, row * cellHeight, cellWidth, cellHeight).data;
+            let sum = 0;
+            let sumSquared = 0;
+            for (let index = 0; index < pixels.length; index += 4) {
+              const luma = (pixels[index] * .2126) + (pixels[index + 1] * .7152) + (pixels[index + 2] * .0722);
+              sum += luma;
+              sumSquared += luma * luma;
+            }
+            const count = pixels.length / 4;
+            const mean = sum / count;
+            cells.push({
+              x: (column * 25) + 2,
+              y: (row * (100 / cellsY)) + 2,
+              w: 21,
+              h: 28,
+              variance: (sumSquared / count) - (mean * mean),
+            });
+            totalLuma += sum;
+            totalPixels += count;
+          }
+        }
+        const hotspots = cells.sort((left, right) => right.variance - left.variance).slice(0, 3).map(({ variance, ...cell }) => cell);
+        resolve({
+          ...basicMeta,
+          width: image.naturalWidth,
+          height: image.naturalHeight,
+          orientation: image.naturalWidth > image.naturalHeight ? "lanskap" : image.naturalWidth < image.naturalHeight ? "potret" : "persegi",
+          averageLuma: Math.round(totalLuma / totalPixels),
+          hotspots,
+        });
+      } catch {
+        resolve(basicMeta);
+      }
+    }, { once: true });
+    image.addEventListener("error", () => resolve(basicMeta), { once: true });
+    image.src = dataUrl;
+  });
+}
+
+function inspectAudioFile(dataUrl, file) {
+  return new Promise((resolve) => {
+    const audio = document.createElement("audio");
+    let settled = false;
+    const finish = (duration = null) => {
+      if (settled) return;
+      settled = true;
+      resolve({ size: file.size, type: file.type, duration: Number.isFinite(duration) ? duration : null });
+    };
+    audio.addEventListener("loadedmetadata", () => finish(audio.duration), { once: true });
+    audio.addEventListener("error", () => finish(), { once: true });
+    window.setTimeout(() => finish(), 3000);
+    audio.preload = "metadata";
+    audio.src = dataUrl;
+  });
+}
+
 function processUploadedFile(file) {
   if (file.size > 10 * 1024 * 1024) return showToast("Ukuran file melebihi batas 10 MB.");
   const expectsImage = state.inputType === "image" || (state.inputType === "qr" && state.qrInputMode === "image");
@@ -2464,6 +2760,8 @@ function processUploadedFile(file) {
   if (expectsImage && !file.type.startsWith("image/")) return showToast("Pilih file gambar PNG, JPG, atau WEBP.");
   if (expectsAudio && !file.type.startsWith("audio/")) return showToast("Pilih file audio MP3, WAV, atau M4A.");
   state.fileName = file.name;
+  state.fileMeta = { size: file.size, type: file.type };
+  state.mediaContext = "";
   state.content = `${expectsAudio ? "Rekaman audio" : state.inputType === "qr" ? "Gambar QR" : "Gambar"}: ${file.name}`;
   state.scenarioId = expectsAudio ? "audio-impersonation" : state.inputType === "qr" ? "qr-payment" : "manipulated-media";
   state.aiWrong = false;
@@ -2471,12 +2769,18 @@ function processUploadedFile(file) {
   state.casePrompt = "";
   state.xaiMode = "bounding";
   const reader = new FileReader();
-  reader.addEventListener("load", () => {
-    if (expectsAudio) state.audioDataUrl = String(reader.result);
-    else if (state.inputType === "qr") state.qrImageDataUrl = String(reader.result);
-    else state.imageDataUrl = String(reader.result);
-    render();
-    setTimeout(() => document.getElementById("verify-tool")?.scrollIntoView(), 0);
+  reader.addEventListener("load", async () => {
+    const dataUrl = String(reader.result);
+    const uploadedName = file.name;
+    if (expectsAudio) state.audioDataUrl = dataUrl;
+    else if (state.inputType === "qr") state.qrImageDataUrl = dataUrl;
+    else state.imageDataUrl = dataUrl;
+    render({ preserveScroll: true });
+    const metadata = expectsAudio ? await inspectAudioFile(dataUrl, file) : await inspectImageFile(dataUrl, file);
+    if (state.fileName !== uploadedName) return;
+    state.fileMeta = metadata;
+    state.scenarioId = inferAnalysisPreset();
+    render({ preserveScroll: true });
   }, { once: true });
   reader.addEventListener("error", () => showToast("File tidak dapat dibaca."), { once: true });
   reader.readAsDataURL(file);
@@ -2506,12 +2810,22 @@ document.addEventListener("drop", (event) => {
 
 document.addEventListener("pointermove", (event) => {
   const stage = event.target.closest?.(".hadang-game-stage");
-  if (!stage || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (!stage || event.pointerType === "touch" || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const rect = stage.getBoundingClientRect();
-  const x = ((event.clientX - rect.left) / rect.width - 0.5) * -12;
-  const y = ((event.clientY - rect.top) / rect.height - 0.5) * -8;
+  const pointerX = (event.clientX - rect.left) / rect.width - 0.5;
+  const pointerY = (event.clientY - rect.top) / rect.height - 0.5;
+  const x = pointerX * -18;
+  const y = pointerY * -12;
   stage.style.setProperty("--scene-x", `${x.toFixed(2)}px`);
   stage.style.setProperty("--scene-y", `${y.toFixed(2)}px`);
+  stage.style.setProperty("--scene-tilt-x", `${(pointerY * -3.2).toFixed(2)}deg`);
+  stage.style.setProperty("--scene-tilt-y", `${(pointerX * 4.2).toFixed(2)}deg`);
+  stage.style.setProperty("--modal-tilt-x", `${(pointerY * 1.1).toFixed(2)}deg`);
+  stage.style.setProperty("--modal-tilt-y", `${(pointerX * -1.5).toFixed(2)}deg`);
+  stage.style.setProperty("--ui-x", `${(pointerX * 8).toFixed(2)}px`);
+  stage.style.setProperty("--ui-y", `${(pointerY * 6).toFixed(2)}px`);
+  stage.style.setProperty("--light-x", `${Math.round(50 + pointerX * 70)}%`);
+  stage.style.setProperty("--light-y", `${Math.round(38 + pointerY * 48)}%`);
 });
 
 document.addEventListener("pointerout", (event) => {
@@ -2519,6 +2833,14 @@ document.addEventListener("pointerout", (event) => {
   if (!stage || stage.contains(event.relatedTarget)) return;
   stage.style.setProperty("--scene-x", "0px");
   stage.style.setProperty("--scene-y", "0px");
+  stage.style.setProperty("--scene-tilt-x", "0deg");
+  stage.style.setProperty("--scene-tilt-y", "0deg");
+  stage.style.setProperty("--modal-tilt-x", "0deg");
+  stage.style.setProperty("--modal-tilt-y", "0deg");
+  stage.style.setProperty("--ui-x", "0px");
+  stage.style.setProperty("--ui-y", "0px");
+  stage.style.setProperty("--light-x", "50%");
+  stage.style.setProperty("--light-y", "38%");
 });
 
 document.addEventListener("keydown", (event) => {
