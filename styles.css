@@ -462,6 +462,7 @@ input[type="range"] { width: 100%; height: 5px; accent-color: var(--blue-600); }
 .hadang-game-stage { --scene-x: 0px; --scene-y: 0px; position: relative; width: 100%; aspect-ratio: 16 / 9; color: white; background: var(--navy-900); border: 3px solid var(--navy-800); border-radius: 8px; box-shadow: 0 22px 50px rgba(15, 23, 42, .2); overflow: hidden; isolation: isolate; perspective: 900px; }
 .intro-stage { height: clamp(500px, 67vh, 760px); aspect-ratio: auto; margin-top: 28px; }
 .arena-stage { margin-bottom: 12px; }
+.arena-stage.interactive-arena { touch-action: none; }
 .game-stage-art { position: absolute; inset: -12px; z-index: -2; background: url("assets/hadang-court-2d.png") center / cover no-repeat; transform: translate3d(var(--scene-x), var(--scene-y), 0) scale(1.035); transition: transform .18s ease-out; }
 .game-stage-shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(7, 14, 29, .62) 0%, rgba(7, 14, 29, .05) 27%, rgba(7, 14, 29, .06) 65%, rgba(7, 14, 29, .72) 100%); }
 .game-hud { position: absolute; z-index: 6; top: 14px; left: 14px; right: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
@@ -514,13 +515,18 @@ input[type="range"] { width: 100%; height: 5px; accent-color: var(--blue-600); }
 .mission-pips i { width: 17px; height: 5px; background: #526077; border-radius: 99px; }
 .mission-pips i.active { background: var(--amber-600); }
 .mission-pips i.done { background: var(--teal-500); }
-.arena-controls { position: absolute; z-index: 13; right: 18px; bottom: 61px; display: grid; grid-template-columns: 42px 70px 42px; gap: 6px; }
-.arena-controls button { min-height: 38px; padding: 0; color: white; background: rgba(11,19,38,.86); border: 1px solid rgba(255,255,255,.38); border-radius: 5px; font-size: .7rem; font-weight: 900; backdrop-filter: blur(6px); touch-action: none; }
-.arena-controls button:nth-child(2) { color: #18233a; background: #ffcf70; border-color: #ffe5ac; }
-.arena-controls button:active { transform: scale(.94); background: var(--teal-600); }
+.arena-controls { position: absolute; z-index: 13; right: 18px; bottom: 61px; display: grid; grid-template-columns: 48px 88px 48px; gap: 7px; padding: 6px; background: rgba(7,14,29,.68); border: 1px solid rgba(255,255,255,.24); border-radius: 7px; box-shadow: 0 10px 24px rgba(7,14,29,.28); backdrop-filter: blur(8px); }
+.arena-controls button { min-width: 0; min-height: 46px; display: grid; place-items: center; align-content: center; gap: 2px; padding: 4px; color: white; background: rgba(23,35,56,.95); border: 1px solid rgba(255,255,255,.38); border-radius: 5px; font-size: .72rem; font-weight: 900; line-height: 1; touch-action: none; user-select: none; -webkit-user-select: none; }
+.arena-controls button span { font-size: .76rem; line-height: 1; }
+.arena-controls button small { color: #cbd7e7; font-size: .42rem; font-weight: 800; letter-spacing: .4px; }
+.arena-controls .arena-control-block { grid-template-columns: 24px auto; color: #18233a; background: #ffcf70; border-color: #ffe5ac; }
+.arena-control-block span { width: 22px; height: 22px; display: grid; place-items: center; color: white; background: #18233a; border-radius: 4px; font-size: .56rem !important; }
+.arena-control-block strong { font-size: .62rem; }
+.arena-controls button:active, .arena-controls button.is-pressed { color: white; background: var(--teal-600); border-color: #91eee4; transform: scale(.96); }
 .game-control-hint { display: flex; flex-wrap: wrap; gap: 8px; margin: -8px 0 22px; }
 .game-control-hint span { display: flex; align-items: center; gap: 5px; color: #c3cfdf; font-size: .67rem; }
 .game-control-hint kbd { min-width: 25px; padding: 4px 6px; color: white; background: #202d43; border: 1px solid #44536c; border-bottom-width: 3px; border-radius: 4px; font: 800 .62rem/1 sans-serif; text-align: center; }
+.touch-game-control-hint { display: none; }
 .game-live-stats { display: flex !important; flex-direction: row !important; gap: 18px; }
 .game-live-stats > span { display: flex; min-width: 58px; flex-direction: column; }
 .game-live-stats b { margin-top: 2px; color: #ffcf70; font-size: .85rem; }
@@ -1171,6 +1177,7 @@ input[type="range"] { width: 100%; height: 5px; accent-color: var(--blue-600); }
 .community-vision-stage[data-vision-state="tracking"] .vision-camera-empty { display: none; }
 .vision-court { position: absolute; inset: 12% 6% 16%; z-index: 3; display: grid; grid-template-columns: repeat(4, 1fr); border: 2px solid rgba(255,255,255,.62); transform: perspective(700px) rotateX(4deg); transform-origin: bottom; pointer-events: none; }
 .vision-court::before { content: "MASUK"; position: absolute; left: -1px; bottom: 100%; padding: 5px 8px; color: white; background: #d15d3c; font-size: .48rem; font-weight: 800; }
+html[lang="en"] .vision-court::before { content: "ENTRY"; }
 .vision-court-line { position: relative; border-right: 2px solid rgba(255,255,255,.62); }
 .vision-court-line:last-child { border-right: 0; }
 .vision-court-line i { position: absolute; inset: 0; opacity: 0; background: rgba(37,99,235,.13); }
@@ -1467,9 +1474,16 @@ input[type="range"] { width: 100%; height: 5px; accent-color: var(--blue-600); }
   .action-gate span { font-size: .4rem; }
   .action-gate small { display: none; }
   .game-mission-bar { left: 6px; right: 6px; bottom: 5px; min-height: 24px; padding: 4px 6px; }
-  .game-mission-bar > span { font-size: .45rem; }
-  .arena-controls { right: 8px; bottom: auto; top: 38%; grid-template-columns: 34px 58px 34px; gap: 4px; }
-  .arena-controls button { min-height: 32px; font-size: .55rem; }
+  .game-mission-bar > span { font-size: 0; }
+  .game-mission-bar > span::after { content: "Ketuk lapangan, tahan tombol arah, lalu HADANG"; font-size: .45rem; }
+  html[lang="en"] .game-mission-bar > span::after { content: "Tap the court, hold an arrow button, then BLOCK"; }
+  .arena-controls { right: auto; bottom: auto; top: calc(38% + 62px); left: 50%; grid-template-columns: 58px minmax(108px, 1fr) 58px; width: min(248px, calc(100% - 28px)); gap: 7px; padding: 7px; transform: translateX(-50%); }
+  .arena-controls button { min-height: 52px; font-size: .7rem; }
+  .arena-controls button span { font-size: .9rem; }
+  .arena-controls button small { font-size: .43rem; }
+  .arena-controls .arena-control-block { grid-template-columns: 28px auto; }
+  .arena-control-block span { width: 26px; height: 26px; font-size: .62rem !important; }
+  .arena-control-block strong { font-size: .7rem; }
   .mission-pips { gap: 3px; }
   .mission-pips i { width: 10px; height: 4px; }
   .game-brief { gap: 9px; padding: 10px; }
@@ -1493,6 +1507,8 @@ input[type="range"] { width: 100%; height: 5px; accent-color: var(--blue-600); }
   .game-live-stats b { font-size: .65rem; }
   .question-scrim { background: linear-gradient(180deg, transparent 24%, rgba(7, 14, 29, .18) 40%, rgba(7, 14, 29, .7)); }
   .game-question-panel.game-question-modal { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: 59%; transform: none; }
+  .game-question-modal .question-panel-top { min-height: 48px; padding-right: 58px; }
+  .question-close { top: 4px; right: 5px; width: 40px; height: 40px; }
   .game-question-modal.entering { animation: questionEnterMobile .3s cubic-bezier(.2, .8, .2, 1) both; }
   @keyframes questionEnterMobile { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: translateY(0); } }
   .question-reopen { right: auto; bottom: 18px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
@@ -1500,6 +1516,10 @@ input[type="range"] { width: 100%; height: 5px; accent-color: var(--blue-600); }
   .game-start-modal h2 { margin-top: 13px; font-size: 1.65rem; }
   .game-start-modal p { font-size: .82rem; }
   .start-rules { grid-template-columns: repeat(2, 1fr); margin-bottom: 19px; }
+  .desktop-game-control-hint { display: none; }
+  .touch-game-control-hint { display: grid; grid-template-columns: auto 1fr; gap: 9px; align-items: center; margin: -7px 0 20px; padding: 10px; color: #cbd7e7; background: #172033; border: 1px solid #354156; border-radius: 5px; }
+  .touch-game-control-hint strong { color: #ffcf70; font-size: .62rem; }
+  .touch-game-control-hint span { font-size: .62rem; line-height: 1.45; }
   .neutralizer, .split-evidence, .ai-columns, .comparison { grid-template-columns: 1fr; }
   .xai-mode-bar { align-items: stretch; flex-direction: column; }
   .xai-segmented { display: grid; grid-template-columns: 1fr 1fr; }

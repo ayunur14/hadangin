@@ -7,6 +7,7 @@ import {
   suspendCommunityVision,
 } from "./community-vision.js";
 import GENERATED_ENGLISH from "./translations-en.json";
+import CURATED_ENGLISH from "./translations-curated-en.json";
 
 const DEFAULT_MESSAGE = "Nak, Mama kecelakaan. HP Mama rusak. Transfer Rp3 juta sekarang ke rekening ini. Tolong cepat, ya!";
 const OFFLINE_KIT_URL = new URL("./assets/hadangin-offline-kit.png", import.meta.url).href;
@@ -657,8 +658,8 @@ function updateLanguageToggle(language) {
   const isEnglish = language === "en";
   toggle.querySelector("span").textContent = isEnglish ? "ID" : "EN";
   toggle.setAttribute("aria-pressed", String(isEnglish));
-  toggle.setAttribute("aria-label", isEnglish ? "Tampilkan situs dalam Bahasa Indonesia" : "Translate website to English");
-  toggle.title = isEnglish ? "Tampilkan situs dalam Bahasa Indonesia" : "Translate website to English";
+  toggle.setAttribute("aria-label", isEnglish ? "Switch to Indonesian" : "Translate website to English");
+  toggle.title = isEnglish ? "Switch to Indonesian" : "Translate website to English";
 }
 
 function protectHadangin(root = document.body) {
@@ -673,9 +674,9 @@ function preserveCase(source, translated) {
 
 function translateToEnglish(value) {
   let result = String(value);
-  const exact = GENERATED_ENGLISH[result.trim()] || ENGLISH_PHRASES.get(result.trim());
+  const exact = CURATED_ENGLISH[result.trim()] || ENGLISH_PHRASES.get(result.trim()) || GENERATED_ENGLISH[result.trim()];
   if (exact) return result.replace(result.trim(), exact);
-  const phrases = [...ENGLISH_PHRASES].sort((a, b) => b[0].length - a[0].length);
+  const phrases = [...Object.entries(CURATED_ENGLISH), ...ENGLISH_PHRASES].sort((a, b) => b[0].length - a[0].length);
   phrases.forEach(([source, translated]) => {
     const escaped = source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const prefix = /^[\p{L}\p{N}]/u.test(source) ? "(?<![\\p{L}\\p{N}])" : "";
@@ -717,8 +718,18 @@ function applyLanguage(root = document.body) {
       element.setAttribute(attribute, language === "en" ? translateToEnglish(originals[attribute]) : originals[attribute]);
     });
   });
+  const defaultTeamNames = [
+    ["#community-team-arus", "Tim Arus", "Flow Team"],
+    ["#community-team-hadang", "Tim Hadang", "Guard Team"],
+  ];
+  defaultTeamNames.forEach(([selector, indonesian, english]) => {
+    const input = document.querySelector(selector);
+    if (!input) return;
+    if (language === "en" && input.value === indonesian) input.value = english;
+    if (language === "id" && input.value === english) input.value = indonesian;
+  });
   applyingLanguage = false;
-  document.title = language === "en" ? "HADANGIN - AI Context Guard Web Indonesia" : "HADANGIN - AI Context Guard Web Indonesia";
+  document.title = language === "en" ? "HADANGIN - Indonesian AI Context Guard Web" : "HADANGIN - AI Context Guard Web Indonesia";
   const description = document.querySelector('meta[name="description"]');
   if (description) description.content = language === "en"
     ? "HADANGIN, a localized AI Context Guard Web prototype that helps users pause, verify, reflect, and evaluate before trusting or sharing digital information."
@@ -736,6 +747,7 @@ function setLanguage(language, persist = true) {
   }
   applyLanguage();
   setTheme(document.documentElement.dataset.theme, false);
+  window.dispatchEvent(new CustomEvent("hadang:language-change", { detail: { language: nextLanguage } }));
 }
 
 let savedLanguage = "id";
@@ -1111,7 +1123,8 @@ function transitionScreen() {
       <h2>Jangan biarkan informasi lolos menuju tindakan.</h2>
       <p>Gerakkan penjaga aktif di garisnya, tangkap token informasi, lalu jawab pertanyaan J.E.D.A. Jangan biarkan tiga token lolos menuju tindakan.</p>
       <div class="start-rules"><span><b>J</b> Jeda</span><span><b>E</b> Emosi</span><span><b>D</b> Data</span><span><b>A</b> Aksi</span></div>
-      <div class="game-control-hint"><span><kbd>W</kbd><kbd>&uarr;</kbd> Naik</span><span><kbd>S</kbd><kbd>&darr;</kbd> Turun</span><span><kbd>Spasi</kbd> Hadang</span></div>
+      <div class="game-control-hint desktop-game-control-hint"><span><kbd>W</kbd><kbd>&uarr;</kbd> Naik</span><span><kbd>S</kbd><kbd>&darr;</kbd> Turun</span><span><kbd>Spasi</kbd> Hadang</span></div>
+      <div class="touch-game-control-hint"><strong>Kontrol HP</strong><span>Ketuk posisi di lapangan atau tahan tombol arah, lalu tekan HADANG.</span></div>
       <button class="button button-teal" data-action="enter-arena">Mulai Permainan <span aria-hidden="true">&#8594;</span></button>
     </div>
   </div>`;
@@ -1143,7 +1156,11 @@ function gameStage(step, intro = false) {
     }).join("")}
     <div class="info-runner ${intro ? "is-running" : "game-token"}" data-game-token><span class="runner-card"><i></i><i></i><i></i></span><strong>INFO</strong><small data-token-kind>${intro ? "mencurigakan" : "pesan mendesak"}</small></div>
     <div class="action-gate"><span>TINDAKAN</span><small>Jangan biarkan lolos</small></div>
-    ${intro ? "" : `<div class="arena-controls" aria-label="Kontrol sentuh"><button type="button" data-game-control="up" aria-label="Gerak naik">&#9650;</button><button type="button" data-game-control="block" aria-label="Hadang token">HADANG</button><button type="button" data-game-control="down" aria-label="Gerak turun">&#9660;</button></div>`}
+    ${intro ? "" : `<div class="arena-controls" aria-label="Kontrol permainan">
+      <button class="arena-control-move" type="button" data-game-control="up" aria-label="Gerakkan penjaga ke atas"><span aria-hidden="true">&#9650;</span><small>NAIK</small></button>
+      <button class="arena-control-block" type="button" data-game-control="block" aria-label="Hadang token informasi"><span aria-hidden="true">H</span><strong>HADANG</strong></button>
+      <button class="arena-control-move" type="button" data-game-control="down" aria-label="Gerakkan penjaga ke bawah"><span aria-hidden="true">&#9660;</span><small>TURUN</small></button>
+    </div>`}
     <div class="game-mission-bar"><span>${intro ? "Informasi bergerak menuju aksi" : stageMessages[activeStep]}${intro ? "" : " · W/S atau panah untuk bergerak"}</span><div class="mission-pips">${guards.map((_, index) => `<i class="${index < activeStep && !intro ? "done" : index === activeStep ? "active" : ""}"></i>`).join("")}</div></div>
     ${!intro && state.gameOver ? `<div class="game-over-panel"><span>MISI GAGAL</span><strong>Tiga informasi lolos.</strong><p>Ulangi ronde dan jaga garis ${guards[activeStep][1]}.</p><button class="button button-teal" type="button" data-action="retry-round">Ulangi Ronde</button></div>` : ""}
   </div>`;
@@ -1170,14 +1187,20 @@ function startArenaGame(stage) {
   const guardLeft = [22, 40, 58, 76][state.hadangStep];
   const tokenKinds = ["pesan mendesak", "tautan palsu", "QR mencurigakan", "voice note", "klaim viral"];
   const spawnIndex = state.gameCatches + (3 - state.gameLives) + state.hadangStep;
-  const tokenY = [36, 66, 43, 62, 32, 57][spawnIndex % 6];
+  const compactArena = matchMedia("(max-width: 680px)").matches;
+  const yMin = compactArena ? 18 : 31;
+  const yMax = compactArena ? 34 : 70;
+  const tokenY = (compactArena ? [21, 32, 25, 30, 19, 28] : [36, 66, 43, 62, 32, 57])[spawnIndex % 6];
   const runtime = {
     stage,
     token: stage.querySelector("[data-game-token]"),
     guard: stage.querySelector(".player-guard"),
     x: Math.max(6, guardLeft - 17),
     y: tokenY,
-    guardY: Math.min(70, Math.max(31, state.guardY)),
+    guardY: Math.min(yMax, Math.max(yMin, state.guardY)),
+    yMin,
+    yMax,
+    nudge: compactArena ? 4 : 9,
     guardLeft,
     speed: 7.3 + state.hadangStep * 0.65,
     blockingUntil: 0,
@@ -1197,7 +1220,7 @@ function startArenaGame(stage) {
     const delta = Math.min((time - runtime.lastTime) / 1000, 0.05);
     runtime.lastTime = time;
     const direction = (arenaKeys.has("arrowdown") || arenaKeys.has("s") ? 1 : 0) - (arenaKeys.has("arrowup") || arenaKeys.has("w") ? 1 : 0);
-    runtime.guardY = Math.min(70, Math.max(31, runtime.guardY + direction * 38 * delta));
+    runtime.guardY = Math.min(runtime.yMax, Math.max(runtime.yMin, runtime.guardY + direction * 38 * delta));
     runtime.x += runtime.speed * delta;
     runtime.guard.style.top = `${runtime.guardY}%`;
     runtime.token.style.left = `${runtime.x}%`;
@@ -1224,6 +1247,22 @@ function blockInformation() {
   if (!arenaRuntime) return;
   arenaRuntime.blockingUntil = performance.now() + 650;
   arenaRuntime.guard?.classList.add("is-blocking");
+}
+
+function moveArenaGuardTo(clientY) {
+  if (!arenaRuntime) return;
+  const rect = arenaRuntime.stage.getBoundingClientRect();
+  if (!rect.height) return;
+  const targetY = ((clientY - rect.top) / rect.height) * 100;
+  arenaRuntime.guardY = Math.min(arenaRuntime.yMax, Math.max(arenaRuntime.yMin, targetY));
+  state.guardY = arenaRuntime.guardY;
+  if (arenaRuntime.guard) arenaRuntime.guard.style.top = `${arenaRuntime.guardY}%`;
+}
+
+function releaseArenaDirection() {
+  arenaKeys.delete("arrowup");
+  arenaKeys.delete("arrowdown");
+  document.querySelectorAll("[data-game-control].is-pressed").forEach((button) => button.classList.remove("is-pressed"));
 }
 
 function catchInformation(runtime) {
@@ -1721,28 +1760,66 @@ function communityOfflineArena() {
 
 function downloadCommunityKit() {
   const pack = activeCommunityPack();
+  const english = currentLanguage() === "en";
+  const localize = (value) => english ? translateToEnglish(value) : value;
   const visionGuide = `PANDUAN ARENA KAMERA AI (BETA)\n\nAudiens: ${communityState.audience}\nDurasi: ${communityState.duration}\nPeserta: ${communityState.participants}\nPaket: ${pack.title}\nKasus: ${pack.caseTitle}\n\nPERALATAN\nLaptop dengan webcam, layar yang dapat dilihat kelompok, dan ruang gerak sekitar 2 meter.\n\nALUR\n1. Lakukan voting awal tanpa petunjuk.\n2. Pilih satu penjaga untuk berdiri di depan kamera.\n3. Kelompok membahas pertanyaan pada garis Jeda, Emosi, Data, dan Aksi.\n4. Penjaga mengangkat kedua tangan selama satu detik untuk mengunci garis.\n5. Ganti penjaga pada garis berikutnya agar peserta bergiliran.\n6. Lakukan voting akhir dan debrief.\n\nPRIVASI DAN AKSESIBILITAS\nPose diproses lokal di browser; video tidak direkam atau dikirim ke server. Gunakan tombol Tandai manual bagi peserta yang tidak dapat atau tidak ingin melakukan pose. AI hanya membaca pose dan tidak menilai kualitas jawaban.\n`;
   const offlineGuide = `PANDUAN ARENA HADANG OFFLINE\n\nAudiens: ${communityState.audience}\nDurasi: ${communityState.duration}\nPeserta: ${communityState.participants}\nPaket: ${pack.title}\nKasus: ${pack.caseTitle}\n\nPERALATAN\nLaptop dan proyektor, selotip lantai, Token Informasi, kartu J.E.D.A., kartu keputusan, kartu taktik, dan kartu bukti.\n\nALUR\n1. Bagi peserta menjadi Tim Arus dan Tim Hadang.\n2. Buat empat garis fisik: Jeda, Emosi, Data, dan Aksi.\n3. Lakukan voting awal dengan Kartu Keputusan.\n4. Tim Arus membawa Token Informasi; Tim Hadang menyelesaikan tantangan setiap garis.\n5. Fasilitator mengatur timer, pilihan, dan skor melalui website.\n6. Buka Kartu Taktik dan AI Lens setelah semua garis dimainkan.\n7. Lakukan voting akhir, debrief, lalu tukar peran.\n\nKEAMANAN\nPermainan tanpa kontak fisik. Jangan berlari pada lantai licin. Gunakan hanya skenario yang disediakan dan jangan memakai data pribadi peserta.\n`;
-  const guide = communityState.mode === "vision" ? visionGuide : offlineGuide;
+  const visionGuideEn = `AI CAMERA ARENA GUIDE (BETA)\n\nAudience: ${localize(communityState.audience)}\nDuration: ${localize(communityState.duration)}\nParticipants: ${communityState.participants}\nPack: ${localize(pack.title)}\nCase: ${localize(pack.caseTitle)}\n\nEQUIPMENT\nA laptop with a webcam, a screen visible to the group, and approximately two meters of movement space.\n\nFLOW\n1. Run the initial vote without clues.\n2. Choose one guard to stand in front of the camera.\n3. Discuss the questions for Pause, Emotion, Evidence, and Action.\n4. The guard raises both hands for one second to lock the line.\n5. Rotate guards at each line so participants take turns.\n6. Run the final vote and debrief.\n\nPRIVACY AND ACCESSIBILITY\nPoses are processed on the device in the browser; video is not recorded or sent to a server. Use Mark Manually for participants who cannot or prefer not to perform the pose. AI only reads the pose and does not evaluate answer quality.\n`;
+  const offlineGuideEn = `OFFLINE BLOCKING ARENA GUIDE\n\nAudience: ${localize(communityState.audience)}\nDuration: ${localize(communityState.duration)}\nParticipants: ${communityState.participants}\nPack: ${localize(pack.title)}\nCase: ${localize(pack.caseTitle)}\n\nEQUIPMENT\nA laptop and projector, floor tape, an Information Token, J.E.D.A. cards, decision cards, tactic cards, and evidence cards.\n\nFLOW\n1. Divide participants into the Flow Team and Guard Team.\n2. Create four physical lines: Pause, Emotion, Evidence, and Action.\n3. Run the initial vote with Decision Cards.\n4. The Flow Team carries the Information Token; the Guard Team completes each line challenge.\n5. The facilitator manages the timer, choices, and score on the website.\n6. Reveal the Tactic Card and AI Lens after all lines have been played.\n7. Run the final vote and debrief, then swap roles.\n\nSAFETY\nThis is a non-contact game. Do not run on slippery floors. Use only the provided scenarios and never use participants' personal data.\n`;
+  const guide = english
+    ? (communityState.mode === "vision" ? visionGuideEn : offlineGuideEn)
+    : (communityState.mode === "vision" ? visionGuide : offlineGuide);
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob([guide], { type: "text/plain;charset=utf-8" }));
-  link.download = communityState.mode === "vision" ? "panduan-arena-kamera-hadangin.txt" : "panduan-sesi-hadangin.txt";
+  link.download = english
+    ? (communityState.mode === "vision" ? "hadangin-ai-camera-arena-guide.txt" : "hadangin-community-session-guide.txt")
+    : (communityState.mode === "vision" ? "panduan-arena-kamera-hadangin.txt" : "panduan-sesi-hadangin.txt");
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 0);
-  showToast("Panduan sesi berhasil diunduh.");
+  showToast(english ? "Session guide downloaded." : "Panduan sesi berhasil diunduh.");
 }
 
 function printCommunityKit() {
-  const cards = [
+  const english = currentLanguage() === "en";
+  const cards = english ? [
+    ["J", "PAUSE", "Pause briefly and identify the time pressure."], ["E", "EMOTION", "Recognize the emotion being influenced."], ["D", "EVIDENCE", "Choose the strongest independent evidence."], ["A", "ACTION", "Assess the risk and choose a safer action."],
+    ["&#8594;", "PROCEED", "I will take the requested action."], ["?", "VERIFY", "I will check through another channel."], ["&#9632;", "STOP", "I will not continue the action."], ["...", "NOT SURE", "I need more evidence."],
+    ["!", "URGENCY", "Reduce the other team's time by five seconds."], ["ID", "AUTHORITY", "Use a claim tied to an institution or position."], ["!", "FEAR", "Emphasize a threat or emergency."], ["+", "SOCIAL PRESSURE", "Use virality as pressure."],
+  ] : [
     ["J", "JEDA", "Berhenti sejenak. Temukan tekanan waktu."], ["E", "EMOSI", "Kenali emosi yang sedang dipengaruhi."], ["D", "DATA", "Pilih bukti independen yang paling kuat."], ["A", "AKSI", "Nilai risiko dan pilih tindakan yang aman."],
     ["&#8594;", "LANJUT", "Saya akan melakukan tindakan yang diminta."], ["?", "VERIFIKASI", "Saya akan memeriksa lewat kanal lain."], ["&#9632;", "BERHENTI", "Saya tidak akan melanjutkan tindakan."], ["...", "BELUM YAKIN", "Saya membutuhkan bukti tambahan."],
     ["!", "URGENCY", "Kurangi waktu lawan lima detik."], ["ID", "AUTHORITY", "Gunakan klaim institusi atau jabatan."], ["!", "FEAR", "Tekankan ancaman atau keadaan darurat."], ["+", "SOCIAL PRESSURE", "Gunakan viralitas sebagai tekanan."],
   ];
+  const printCopy = english ? {
+    title: "HADANGIN · Blocking Arena Kit",
+    instruction: "Cut along the card borders. Laminate the cards for repeated use.",
+    print: "Print",
+    token: "INFORMATION TOKEN",
+    lines: ["J · PAUSE", "E · EMOTION", "D · EVIDENCE", "A · ACTION", "ACTION ZONE"],
+    safety: "Safety: use without physical contact, avoid slippery floors, and adapt movement distances to participants' needs.",
+  } : {
+    title: "HADANGIN · Arena Hadang",
+    instruction: "Potong kartu mengikuti batas. Laminasi bila akan digunakan berulang.",
+    print: "Cetak",
+    token: "TOKEN INFORMASI",
+    lines: ["J · JEDA", "E · EMOSI", "D · DATA", "A · AKSI", "ZONA TINDAKAN"],
+    safety: "Keamanan: gunakan tanpa kontak fisik, hindari lantai licin, dan sesuaikan jarak gerak dengan kebutuhan peserta.",
+  };
   const popup = window.open("", "_blank");
-  if (!popup) { showToast("Izinkan pop-up untuk mencetak kit permainan."); return; }
+  if (!popup) { showToast(english ? "Allow pop-ups to print the game kit." : "Izinkan pop-up untuk mencetak kit permainan."); return; }
   popup.opener = null;
   popup.document.write(`<!doctype html><html lang="id"><head><title>Kit Arena Hadang</title><style>@page{size:A4;margin:10mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;color:#0b1830}.head{display:flex;justify-content:space-between;align-items:end;margin-bottom:8mm;border-bottom:3px solid #2468ef;padding-bottom:4mm}.head h1{margin:0;font-size:22px}.head p{margin:0;font-size:10px}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm}.card{height:82mm;display:flex;flex-direction:column;padding:7mm;border:2px solid #10213d;break-inside:avoid}.card:nth-child(4n+2){border-color:#0e9689}.card:nth-child(4n+3){border-color:#dd9217}.card:nth-child(4n){border-color:#d45f42}.symbol{width:18mm;height:18mm;display:grid;place-items:center;color:white;background:#2468ef;font-size:24px;font-weight:800}.card h2{margin:12mm 0 3mm;font-size:16px}.card p{margin:0;font-size:10px;line-height:1.5}.token{grid-column:1/-1;height:55mm;display:grid;place-items:center;color:white;background:#c83f50;border:4px solid #10213d;font-size:34px;font-weight:800;letter-spacing:2px}.line{grid-column:1/-1;height:35mm;display:grid;place-items:center;border:3px dashed #10213d;font-size:25px;font-weight:800}.note{grid-column:1/-1;font-size:9px;line-height:1.5}@media print{button{display:none}}</style></head><body><div class="head"><div><h1>HADANGIN &middot; Arena Hadang</h1><p>Potong kartu mengikuti batas. Laminasi bila akan digunakan berulang.</p></div><button onclick="print()">Cetak</button></div><div class="cards">${cards.map(([symbol, title, note]) => `<article class="card"><span class="symbol">${symbol}</span><h2>${title}</h2><p>${note}</p></article>`).join("")}<div class="token">TOKEN INFORMASI</div>${["J &middot; JEDA", "E &middot; EMOSI", "D &middot; DATA", "A &middot; AKSI", "ZONA TINDAKAN"].map((label) => `<div class="line">${label}</div>`).join("")}<p class="note">Keamanan: gunakan tanpa kontak fisik, hindari lantai licin, dan sesuaikan jarak gerak dengan kebutuhan peserta.</p></div></body></html>`);
   popup.document.close();
+  if (english) {
+    popup.document.documentElement.lang = "en";
+    popup.document.title = "HADANGIN Blocking Arena Kit";
+    popup.document.querySelector(".head h1").textContent = printCopy.title;
+    popup.document.querySelector(".head p").textContent = printCopy.instruction;
+    popup.document.querySelector(".head button").textContent = printCopy.print;
+    popup.document.querySelector(".token").textContent = printCopy.token;
+    popup.document.querySelectorAll(".line").forEach((line, index) => { line.textContent = printCopy.lines[index]; });
+    popup.document.querySelector(".note").textContent = printCopy.safety;
+  }
   popup.focus();
 }
 
@@ -2091,8 +2168,9 @@ document.addEventListener("click", (event) => {
     const control = target.dataset.gameControl;
     if (control === "block") blockInformation();
     else if (arenaRuntime) {
-      arenaRuntime.guardY = Math.min(70, Math.max(31, arenaRuntime.guardY + (control === "down" ? 9 : -9)));
+      arenaRuntime.guardY = Math.min(arenaRuntime.yMax, Math.max(arenaRuntime.yMin, arenaRuntime.guardY + (control === "down" ? arenaRuntime.nudge : -arenaRuntime.nudge)));
       state.guardY = arenaRuntime.guardY;
+      if (arenaRuntime.guard) arenaRuntime.guard.style.top = `${arenaRuntime.guardY}%`;
     }
     return;
   }
@@ -2406,16 +2484,29 @@ document.addEventListener("keyup", (event) => {
 });
 
 document.addEventListener("pointerdown", (event) => {
-  const control = event.target.closest?.("[data-game-control]")?.dataset.gameControl;
-  if (!arenaRuntime || !["up", "down"].includes(control)) return;
+  const controlButton = event.target.closest?.("[data-game-control]");
+  const control = controlButton?.dataset.gameControl;
+  if (arenaRuntime && ["up", "down"].includes(control)) {
+    event.preventDefault();
+    controlButton.classList.add("is-pressed");
+    controlButton.setPointerCapture?.(event.pointerId);
+    arenaKeys.add(control === "up" ? "arrowup" : "arrowdown");
+    return;
+  }
+
+  const stage = event.target.closest?.(".arena-stage.interactive-arena");
+  if (!arenaRuntime || !stage || event.target.closest?.("button, .arena-controls")) return;
   event.preventDefault();
-  arenaKeys.add(control === "up" ? "arrowup" : "arrowdown");
+  moveArenaGuardTo(event.clientY);
 });
 
-document.addEventListener("pointerup", () => {
-  arenaKeys.delete("arrowup");
-  arenaKeys.delete("arrowdown");
+document.addEventListener("pointerup", (event) => {
+  event.target.closest?.("[data-game-control]")?.classList.remove("is-pressed");
+  releaseArenaDirection();
 });
+
+document.addEventListener("pointercancel", releaseArenaDirection);
+window.addEventListener("blur", releaseArenaDirection);
 
 window.addEventListener("hashchange", render);
 if (!location.hash) history.replaceState(null, "", "#/verify");

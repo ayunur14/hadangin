@@ -5,42 +5,62 @@ const GUARDS = [
   {
     key: "J",
     name: "Jeda",
+    nameEn: "Pause",
     color: 0xe9a20b,
     position: [-1.8, 0, 1.8],
     scenario: "family-emergency",
     description:
       "Hentikan tekanan waktu sebelum informasi bergerak menuju tindakan.",
+    descriptionEn:
+      "Stop time pressure before information turns into action.",
   },
   {
     key: "E",
     name: "Emosi",
+    nameEn: "Emotion",
     color: 0xdb5362,
     position: [1.7, 0, -1.6],
     scenario: "viral-info",
     description:
       "Kenali rasa takut, panik, marah, atau FOMO yang sedang dipancing.",
+    descriptionEn:
+      "Recognize the fear, panic, anger, or FOMO being triggered.",
   },
   {
     key: "D",
     name: "Data",
+    nameEn: "Evidence",
     color: 0x2d75e8,
     position: [5.7, 0, 1.8],
     scenario: "manipulated-media",
     description:
       "Pisahkan klaim dari bukti yang dapat diperiksa secara independen.",
+    descriptionEn:
+      "Separate claims from evidence that can be checked independently.",
   },
   {
     key: "A",
     name: "Aksi",
+    nameEn: "Action",
     color: 0x13a391,
     position: [9.1, 0, -1.6],
     scenario: "qr-payment",
     description:
       "Nilai risiko klik, scan, transfer, atau share sebelum bertindak.",
+    descriptionEn:
+      "Assess the risks of clicking, scanning, transferring, or sharing before you act.",
   },
 ];
 
 let activeExperience = null;
+
+function isEnglish() {
+  return document.documentElement.lang === "en";
+}
+
+function localized(id, english) {
+  return isEnglish() ? english : id;
+}
 
 function makeLabel(
   text,
@@ -227,7 +247,7 @@ function createGuard(config, index) {
   group.add(badge);
 
   const name = makeLabel(
-    config.name.toUpperCase(),
+    localized(config.name, config.nameEn).toUpperCase(),
     "#e8f1ff",
     "rgba(15,23,42,.88)"
   );
@@ -396,9 +416,9 @@ function createExperience(container) {
     const inspector = document.querySelector(".training-3d-inspector");
     if (!inspector) return;
     inspector.classList.add("active");
-    inspector.querySelector("span").textContent = `Garis ${guard.key}`;
-    inspector.querySelector("strong").textContent = guard.name;
-    inspector.querySelector("p").textContent = guard.description;
+    inspector.querySelector("span").textContent = localized(`Garis ${guard.key}`, `Line ${guard.key}`);
+    inspector.querySelector("strong").textContent = localized(guard.name, guard.nameEn);
+    inspector.querySelector("p").textContent = localized(guard.description, guard.descriptionEn);
     const button = inspector.querySelector("button");
     button.disabled = false;
     button.dataset.scenario = guard.scenario;
@@ -487,9 +507,9 @@ function createExperience(container) {
       button.innerHTML = paused ? "&#9654;" : "&#10074;&#10074;";
       button.setAttribute(
         "aria-label",
-        paused ? "Lanjutkan animasi" : "Jeda animasi"
+        paused ? localized("Lanjutkan animasi", "Resume animation") : localized("Jeda animasi", "Pause animation")
       );
-      button.title = paused ? "Lanjutkan animasi" : "Jeda animasi";
+      button.title = paused ? localized("Lanjutkan animasi", "Resume animation") : localized("Jeda animasi", "Pause animation");
     }
   }
 
@@ -595,6 +615,11 @@ function disposeTraining3D() {
 }
 
 window.addEventListener("hadang:before-render", disposeTraining3D);
+window.addEventListener("hadang:language-change", () => {
+  if (!document.querySelector("#training-3d-stage")) return;
+  disposeTraining3D();
+  requestAnimationFrame(mountTraining3D);
+});
 window.addEventListener("hadang:rendered", (event) => {
   if (event.detail?.route === "training")
     requestAnimationFrame(mountTraining3D);
