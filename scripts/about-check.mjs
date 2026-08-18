@@ -143,7 +143,7 @@ try {
   cdp.close();
   if (results.some((result) => result.documentWidth > result.width + 1)
     || howResults.some((result) => result.documentWidth > result.width + 1 || result.clipped.length)
-    || english.title !== "Block Information. Protect Decisions."
+    || english.title !== "Intercept Information. Protect Decisions."
     || !english.cultural?.startsWith("HADANGIN is inspired by Gobak Sodor")
     || !english.jeda?.includes("Jeda is an Indonesian word for a pause")
     || english.courtTitle !== "From Court Lines to the H Symbol"
@@ -151,7 +151,7 @@ try {
     || english.colorTheory !== "Cross-cultural Color Theory"
     || howEnglish.title !== "Practice Independently or Move Together."
     || howEnglish.individual !== "Check Information and Practice Your Own Decisions."
-    || howEnglish.community !== "Block Information Through Team Play.") process.exitCode = 1;
+    || howEnglish.community !== "Intercept Information Through Team Play.") process.exitCode = 1;
 } finally {
   chrome.kill();
 }

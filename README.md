@@ -7,6 +7,13 @@ UNESCO Youth Hackathon 2026. Platform ini membantu pengguna Indonesia
 melakukan _pause, verify, reflect,_ dan _evaluate_ sebelum mempercayai atau
 membagikan konten digital mencurigakan.
 
+HADANGIN berangkat dari masalah perilaku: tekanan psikologis seperti urgency,
+fear, authority, scarcity, dan emotional attachment dapat mendorong keputusan
+digital yang impulsif atau reaktif. Produk ini dirancang untuk menyisipkan jeda
+antara pemicu dan tindakan, lalu mengembalikan ruang untuk memeriksa konteks,
+bukti, dan konsekuensi. Dampak perilakunya tetap perlu dibuktikan melalui
+evaluasi pengguna.
+
 Alih-alih sekadar memberi label “true/false” atau “hoaks/bukan hoaks”,
 HADANGIN menempatkan AI sebagai _second opinion_ dan melatih pengguna membentuk
 penilaian sendiri melalui metode lokal **J.E.D.A.**: Jeda, Emosi, Data, dan
