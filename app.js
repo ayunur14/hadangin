@@ -997,6 +997,7 @@ function routeFromHash() {
   if (path === "dashboard") return "dashboard";
   if (path === "how-it-works") return "how";
   if (path === "about") return "about";
+  if (path === "enterprise") return "enterprise";
   return "verify";
 }
 
@@ -1041,7 +1042,7 @@ function resetFlow() {
 }
 
 function goToRoute(route) {
-  const hashes = { verify: "#/verify", training: "#/training", community: "#/community", dashboard: "#/dashboard", how: "#/how-it-works", about: "#/about" };
+  const hashes = { verify: "#/verify", training: "#/training", community: "#/community", dashboard: "#/dashboard", how: "#/how-it-works", about: "#/about", enterprise: "#/enterprise" };
   location.hash = hashes[route];
 }
 
@@ -1059,6 +1060,7 @@ function render(options = {}) {
   else if (state.route === "dashboard") app.innerHTML = dashboardPage();
   else if (state.route === "how") app.innerHTML = howPage();
   else if (state.route === "about") app.innerHTML = aboutPage();
+  else if (state.route === "enterprise") app.innerHTML = enterprisePage();
   else app.innerHTML = state.inFlow ? verificationFlow() : verifyPage();
   window.dispatchEvent(new CustomEvent("hadang:rendered", { detail: { route: state.route } }));
   requestAnimationFrame(maybeStartArenaGame);
@@ -2221,6 +2223,45 @@ function aboutPage() {
     <section class="section section-white"><div class="page-shell"><div class="section-header"><p class="section-kicker">Masalah yang dihadapi</p><h2>Kesenjangan antara Informasi dan Tindakan</h2><p>Manipulasi digital sering berhasil bukan hanya karena terlihat meyakinkan, tetapi karena memanfaatkan urgency, fear, authority, trust, scarcity, atau emotional attachment.</p></div><div class="problem-flow"><div class="problem-node">INFORMASI</div><div class="problem-arrow">&#8594;</div><div class="problem-node pressure">TEKANAN PSIKOLOGIS</div><div class="problem-arrow">&#8594;</div><div class="problem-node risk">TINDAKAN IMPULSIF</div></div><div class="jeda-interrupt"><span class="jeda-badge">J.E.D.A.</span><p><strong>HADANGIN menyisipkan ruang berpikir.</strong><br>Dalam bahasa Indonesia, jeda berarti berhenti atau mengambil jarak sejenak sebelum bereaksi. J.E.D.A. menerjemahkan Pause, Question, Check, Decide ke dalam logika budaya Gobak Sodor: menahan informasi di batas sebelum berubah menjadi tindakan berisiko.</p></div></div></section>
     <section class="section"><div class="page-shell"><div class="section-header"><p class="section-kicker">Prinsip produk</p><h2>Dibangun untuk memperkuat agensi manusia</h2></div><div class="principle-grid four"><article class="card principle-card"><h3>Accessible</h3><p>Mobile-first, hemat bandwidth, dan menggunakan bahasa yang sederhana.</p></article><article class="card principle-card"><h3>Reflective, Not Punitive</h3><p>Tidak mempermalukan pengguna ketika penilaian awalnya keliru.</p></article><article class="card principle-card"><h3>Human Agency</h3><p>AI mendukung keputusan, bukan mengambil alih keputusan.</p></article><article class="card principle-card"><h3>Locally Grounded</h3><p>Berangkat dari konteks digital Indonesia dengan prinsip yang dapat digunakan lintas budaya.</p></article></div></div></section>
     <section class="section section-dark"><div class="page-shell"><div class="section-header"><p class="section-kicker">Untuk siapa</p><h2>Literasi yang dekat dengan kehidupan digital sehari-hari</h2><p>Ditujukan bagi pengguna digital, anak muda, keluarga, komunitas, pendidik, organisasi pemuda, advokat MIL, peneliti, dan pemangku kebijakan.</p></div><div class="chip-row"><span class="chip chip-blue">Everyday Digital Users</span><span class="chip chip-blue">Youth &amp; Young Adults</span><span class="chip chip-blue">Family &amp; Community</span><span class="chip chip-terra">Educators</span><span class="chip chip-terra">MIL Advocates</span><span class="chip chip-terra">Researchers</span></div></div></section>`;
+}
+
+function enterprisePage() {
+  const expansions = [
+    {
+      code: "EDU",
+      title: "HADANGIN untuk Pendidikan",
+      audience: "Sekolah dan universitas",
+      description: "Pembelajaran MIL berbasis permainan untuk melatih siswa berhenti, memeriksa bukti, dan merefleksikan keputusan sebelum bereaksi terhadap informasi.",
+      features: ["Modul skenario sesuai tingkat belajar", "Mode kelas dan kit fasilitator", "Insight pembelajaran tingkat kelompok"],
+      outcome: "Kebiasaan literasi yang dapat dipraktikkan dan diukur",
+      subscription: "Lisensi pembelajaran per institusi",
+      delivery: "Akses tahunan untuk modul kelas, kit fasilitator, dan dashboard kelompok. Pilot disesuaikan dengan jumlah kelas dan dukungan implementasi.",
+    },
+    {
+      code: "ORG",
+      title: "HADANGIN untuk Organisasi",
+      audience: "Tim, perusahaan, dan institusi",
+      description: "Membantu pegawai mengambil jeda sebelum menanggapi phishing, impersonation, permintaan transfer, dan tindakan social engineering.",
+      features: ["Simulasi berbasis risiko organisasi", "Latihan phishing dan impersonation", "Dashboard perubahan keputusan"],
+      outcome: "Lebih sedikit tindakan impulsif pada momen berisiko",
+      subscription: "Langganan ketahanan tenaga kerja",
+      delivery: "Akses tahunan berbasis pengguna aktif, paket simulasi risiko, serta insight agregat untuk tim keamanan dan pembelajaran.",
+    },
+    {
+      code: "NEWS",
+      title: "HADANGIN untuk Newsroom",
+      audience: "Jurnalis dan tim editorial",
+      description: "Mendukung jurnalis menilai sumber mencurigakan, petunjuk manipulasi, dan risiko informasi sebelum engagement atau publikasi.",
+      features: ["Intake sumber multimodal", "XAI untuk petunjuk manipulasi", "Checkpoint verifikasi editorial"],
+      outcome: "Keputusan publikasi yang lebih transparan dan terlacak",
+      subscription: "Lisensi workspace editorial",
+      delivery: "Akses tahunan per newsroom untuk intake sumber, checkpoint editorial, dan riwayat keputusan yang dapat ditinjau.",
+    },
+  ];
+  return `<section class="enterprise-hero"><img src="${HADANGIN_MARK_URL}" alt="" aria-hidden="true" /><div class="page-shell enterprise-hero-grid"><div><p class="eyebrow">Future Expansion &middot; Enterprise</p><h1>Dari kebiasaan individu menuju ketahanan informasi institusi.</h1><p>HADANGIN dirancang berkembang dari prototipe literasi menjadi lapisan intervensi perilaku untuk pendidikan, organisasi, dan newsroom, dengan manusia tetap memegang keputusan akhir.</p><div class="enterprise-hero-actions"><a class="button" href="#/verify">Jelajahi Prototipe <span aria-hidden="true">&#8594;</span></a><a class="button button-secondary" href="#/community">Lihat Mode Komunitas</a></div></div><aside class="enterprise-positioning"><span>ARAH PRODUK</span><strong>Satu metode, tiga konteks institusional.</strong><div><p><b>01</b> Human First</p><p><b>02</b> AI + XAI</p><p><b>03</b> Human Final</p></div><small>Konsep roadmap untuk kemitraan dan pilot.</small></aside></div></section>
+    <section class="section enterprise-expansion"><div class="page-shell"><div class="enterprise-section-head"><div><p class="section-kicker">Ekspansi masa depan</p><h2>Tiga jalur produk dengan fondasi MIL yang sama.</h2></div><p>Setiap versi menyesuaikan skenario, bahasa risiko, alur kerja, dan ukuran dampak tanpa mengubah prinsip HADANGIN: jeda sebelum tindakan.</p></div><div class="enterprise-offer-grid">${expansions.map((item, index) => `<article class="enterprise-offer"><div class="enterprise-offer-top"><span>${item.code}</span><small>0${index + 1} / MODUL MASA DEPAN</small></div><p class="enterprise-audience">${item.audience}</p><h3>${item.title}</h3><p>${item.description}</p><ul>${item.features.map((feature) => `<li>${feature}</li>`).join("")}</ul><div class="enterprise-outcome"><span>Hasil yang dituju</span><strong>${item.outcome}</strong></div><details class="enterprise-subscription"><summary>Subscription <span aria-hidden="true">+</span></summary><div><span class="enterprise-future-status">Konsep &middot; Belum tersedia</span><small>MODEL BISNIS MASA DEPAN</small><strong>${item.subscription}</strong><p>${item.delivery}</p><button class="button button-small" type="button" data-scroll-to="enterprise-partnership">Jelajahi Konsep Pilot <span aria-hidden="true">&#8594;</span></button></div></details></article>`).join("")}</div></div></section>
+    <section class="section enterprise-platform"><div class="page-shell"><div class="enterprise-platform-head"><div><p class="section-kicker">Platform yang dapat berkembang</p><h2>Satu mesin intervensi, disesuaikan untuk setiap institusi.</h2></div><p>Arsitektur masa depan menghubungkan pemeriksaan multimodal, latihan J.E.D.A., penjelasan XAI, dan insight agregat dalam alur yang dapat dikonfigurasi.</p></div><div class="enterprise-stack" aria-label="Lapisan platform enterprise HADANGIN"><article><span>01</span><strong>Input Multimodal</strong><p>Teks, gambar, audio, QR, dan tautan.</p></article><i>&#8594;</i><article><span>02</span><strong>Behavioral Guardrail</strong><p>Human First dan checkpoint J.E.D.A.</p></article><i>&#8594;</i><article><span>03</span><strong>Explainable AI</strong><p>Sinyal, bukti, ketidakpastian, dan langkah verifikasi.</p></article><i>&#8594;</i><article><span>04</span><strong>Institution Insight</strong><p>Pola risiko dan perubahan keputusan secara agregat.</p></article></div><div class="enterprise-principles"><div><strong>Privacy by design</strong><p>Pemrosesan dan retensi data dapat disesuaikan dengan kebijakan institusi.</p></div><div><strong>Human accountability</strong><p>AI mendukung keputusan; pengguna dan organisasi tetap menentukan tindakan.</p></div><div><strong>Measurable MIL</strong><p>Dampak dilihat dari perubahan kebiasaan, bukan hanya jumlah deteksi.</p></div></div></div></section>
+    <section class="section enterprise-roadmap"><div class="page-shell"><div class="enterprise-roadmap-grid"><div><p class="section-kicker">Roadmap kemitraan</p><h2>Mulai dari pilot kecil, lalu buktikan dampaknya.</h2><p>Ekspansi dirancang bertahap agar setiap fitur dibangun bersama pengguna nyata dan dapat dievaluasi secara bertanggung jawab.</p></div><ol><li><span>SEKARANG</span><strong>Prototype</strong><p>Validasi alur individu, game J.E.D.A., dan mode komunitas.</p></li><li><span>BERIKUTNYA</span><strong>Pilot</strong><p>Uji modul dengan sekolah, organisasi, atau newsroom mitra.</p></li><li><span>MASA DEPAN</span><strong>Enterprise Platform</strong><p>Integrasi, kebijakan khusus, dan insight agregat berbasis kebutuhan.</p></li></ol></div><div class="enterprise-cta" id="enterprise-partnership"><div><span>HADANGIN FOR INSTITUTIONS</span><h2>Bangun refleks sebelum risiko berubah menjadi tindakan.</h2><p>Mulai dengan pilot terbatas untuk memvalidasi skenario, kebutuhan integrasi, dan ukuran dampak yang paling relevan.</p></div><a class="button" href="#/community">Mulai dari Mode Komunitas <span aria-hidden="true">&#8594;</span></a></div></div></section>`;
 }
 
 function startScenario(id) {

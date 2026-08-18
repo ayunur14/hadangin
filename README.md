@@ -157,6 +157,14 @@ ini masih menggunakan data simulatif untuk kebutuhan demo, dengan bagian utama:
 - **Scenario & Workshop Insights**: performa skenario dan ringkasan simulasi
   kelas/komunitas.
 
+## Future Expansion / Enterprise
+
+Route `#/enterprise` menyajikan arah pengembangan HADANGIN sebagai platform
+institusional. Halaman ini membedakan tiga jalur produk masa depan: gamified MIL
+untuk sekolah dan universitas, behavioral security untuk organisasi, serta
+source-assessment support untuk newsroom. Seluruh kemampuan ditandai sebagai
+roadmap dan pilot concept, bukan fitur produksi yang sudah tersedia.
+
 ## Fitur Utama
 
 - Positioning HADANGIN sebagai prototipe lokal AI Context Guard Web.
