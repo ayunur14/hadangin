@@ -1764,6 +1764,44 @@ html[lang="en"] .vision-court::before { content: "ENTRY"; }
   .language-toggle { min-width: 54px; gap: 4px; padding-inline: 6px; }
 }
 
+@media (max-width: 900px), (max-height: 620px) {
+  .game-start-modal {
+    top: auto;
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: max(8px, env(safe-area-inset-left));
+    width: auto;
+    max-height: calc(100dvh - 92px);
+    padding: clamp(16px, 3vw, 23px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    translate: none;
+    transform: none;
+    scrollbar-width: thin;
+  }
+  .game-start-modal .start-level { padding: 4px 7px; font-size: .55rem; }
+  .game-start-modal h2 { margin: 12px 0 9px; font-size: clamp(1.45rem, 5.6vw, 2rem); line-height: 1.12; }
+  .game-start-modal p { margin-bottom: 14px; font-size: .76rem; line-height: 1.5; }
+  .game-start-modal .start-rules { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 14px; }
+  .game-start-modal .start-rules span { min-width: 0; padding: 7px; font-size: .62rem; }
+  .game-start-modal .start-rules b { width: 22px; height: 22px; flex: 0 0 auto; }
+  .game-start-modal .desktop-game-control-hint { display: none; }
+  .game-start-modal .touch-game-control-hint { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 9px; align-items: center; margin: 0 0 14px; padding: 9px; color: #cbd7e7; background: #172033; border: 1px solid #354156; border-radius: 5px; }
+  .game-start-modal .touch-game-control-hint strong { color: #ffcf70; font-size: .6rem; }
+  .game-start-modal .touch-game-control-hint span { min-width: 0; font-size: .6rem; line-height: 1.4; overflow-wrap: anywhere; }
+  .game-start-modal > .button { position: sticky; bottom: -1px; width: 100%; min-height: 48px; box-shadow: 0 -10px 22px rgba(11, 19, 38, .88); }
+}
+
+@media (max-height: 480px) and (orientation: landscape) {
+  .game-start-modal { max-height: calc(100dvh - 82px); padding: 13px 16px; }
+  .game-start-modal h2 { margin: 8px 0 6px; font-size: 1.25rem; }
+  .game-start-modal p { margin-bottom: 9px; font-size: .68rem; line-height: 1.4; }
+  .game-start-modal .start-rules { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 9px; }
+  .game-start-modal .touch-game-control-hint { margin-bottom: 9px; padding: 7px 9px; }
+  .game-start-modal > .button { min-height: 42px; }
+}
+
 @media (max-width: 1180px) and (min-width: 901px) {
   .nav-shell { gap: 14px; }
   .main-nav { gap: 14px; }
