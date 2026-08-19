@@ -1072,7 +1072,7 @@ function render(options = {}) {
   else app.innerHTML = state.inFlow ? verificationFlow() : verifyPage();
   window.dispatchEvent(new CustomEvent("hadang:rendered", { detail: { route: state.route } }));
   requestAnimationFrame(maybeStartArenaGame);
-  if (state.route === "community" && communityState.mode === "vision" && communityState.phase === 1) {
+  if (state.route === "community" && communityState.view === "play" && communityState.mode === "vision" && communityState.phase === 1) {
     requestAnimationFrame(() => mountCommunityVision(communityState.completedLines));
   } else if (isCommunityVisionActive()) {
     stopCommunityVision();
@@ -1789,6 +1789,7 @@ const communityChallenges = {
 const communityVoteLabels = ["Lanjut", "Verifikasi Dulu", "Berhenti", "Belum Yakin"];
 
 const communityState = {
+  view: "play",
   mode: "setup",
   playMode: "offline",
   audience: "Dewasa & Lansia",
@@ -1829,7 +1830,37 @@ function activeCommunityPack() {
 
 function communityPage() {
   return `<section class="page-hero community-hero"><div class="page-shell"><p class="eyebrow">HADANGIN &middot; Arena Komunitas</p><h1>Satu Tim Meloloskan. Satu Tim Menghadang.</h1><p>Website menjadi game master untuk permainan fisik Gobak Sodor literasi digital. Tim Arus membawa informasi menuju tindakan, sementara Tim Hadang menjaga empat garis J.E.D.A.</p><div class="community-hero-benefits"><div><i>01</i><span><strong>Latihan bersama membangun refleks mandiri.</strong><small>Dalam setiap ronde, peserta belajar mengenali bagaimana desakan, rasa takut, otoritas, dan tekanan sosial dapat mendorong reaksi impulsif. Pengulangan J.E.D.A. membiasakan peserta untuk berhenti, bertanya, memeriksa bukti, dan memutuskan dengan sadar sebelum mengeklik, mentransfer, atau membagikan informasi.</small></span></div><div><i>02</i><span><strong>Bergerak, bernostalgia, dan menambah literasi.</strong><small>Gobak Sodor mengubah literasi menjadi pengalaman bersama yang aktif: peserta bergerak, menyusun strategi, dan berhadapan antartim. Setiap garis menjadi checkpoint penalaran, tempat mereka menjelaskan mengapa sebuah informasi harus dihadang atau aman diloloskan menuju tindakan.</small></span></div></div></div></section>
-    ${communityState.mode === "setup" ? `${communitySetup()}${communityTutorial()}` : communityState.mode === "prepare" ? communityPrepare() : communityState.mode === "vision" ? communityVisionSession() : communitySession()}`;
+    ${communityViewTabs()}
+    ${communityState.view === "hub" ? communityHub() : communityState.mode === "setup" ? `${communitySetup()}${communityTutorial()}` : communityState.mode === "prepare" ? communityPrepare() : communityState.mode === "vision" ? communityVisionSession() : communitySession()}`;
+}
+
+function communityViewTabs() {
+  return `<nav class="community-view-nav" aria-label="Pilihan ruang komunitas"><div class="page-shell community-view-tabs">
+    <button type="button" class="community-view-tab ${communityState.view === "play" ? "active" : ""}" data-community-view="play" aria-pressed="${communityState.view === "play"}"><span aria-hidden="true">01</span><strong>Main Bersama</strong><small>Arena offline + Kamera AI</small></button>
+    <button type="button" class="community-view-tab ${communityState.view === "hub" ? "active" : ""}" data-community-view="hub" aria-pressed="${communityState.view === "hub"}"><span aria-hidden="true">02</span><strong>Ruang Komunitas</strong><small>Tantangan, acara, dan refleksi</small><i>Fitur mendatang</i></button>
+  </div></nav>`;
+}
+
+function communityHub() {
+  return `<main class="community-hub">
+    <section class="section community-hub-intro"><div class="page-shell community-hub-intro-grid"><div><p class="section-kicker">Konsep fitur komunitas</p><h2>Latihan tidak berhenti saat permainan selesai.</h2><p>Ruang Komunitas memperpanjang latihan HADANGIN melalui tantangan, refleksi, dan pertemuan yang membantu peserta mengulang kebiasaan J.E.D.A. bersama orang lain.</p></div><aside><span>PRINSIP RUANG</span><strong>Bagikan proses berpikir, bukan hoaksnya.</strong><p>Konten berisiko tidak perlu disebarkan ulang. Anggota cukup membahas sinyal, bukti, dan keputusan yang lebih aman.</p></aside></div></section>
+    <section class="section community-hub-board"><div class="page-shell">
+      <header class="community-hub-heading"><div><p class="section-kicker">Latihan mingguan</p><h2>Satu kasus. Empat garis nalar.</h2></div><span>Pratinjau prototipe</span></header>
+      <div class="community-hub-main-grid">
+        <article class="community-weekly-challenge"><div class="community-hub-card-top"><span>MINGGU INI</span><small>Video &middot; Konteks publik</small></div><h3>Video darurat kehilangan konteks.</h3><p>Sebuah potongan video mendorong orang untuk segera membagikannya. Apa yang perlu diperiksa sebelum informasi bergerak menuju tindakan?</p><div class="community-jeda-route"><span><b>J</b>Tekanan</span><span><b>E</b>Emosi</span><span><b>D</b>Bukti</span><span><b>A</b>Aksi</span></div><details><summary>Lihat panduan tantangan <i aria-hidden="true">+</i></summary><div><strong>Tantangan untuk anggota</strong><p>Temukan sumber pertama, tanggal rekaman, lokasi, dan satu bukti independen. Tulis keputusanmu tanpa mengunggah ulang video yang belum terverifikasi.</p></div></details></article>
+        <aside class="community-hub-safety"><span>MODERASI BERBASIS MIL</span><h3>Ruang aman untuk berlatih menilai.</h3><ul><li>Jangan unggah data pribadi atau konten berbahaya.</li><li>Jelaskan alasan dan sumber yang diperiksa.</li><li>Keputusan akhir tetap milik manusia.</li></ul></aside>
+      </div>
+    </div></section>
+    <section class="section community-hub-activity"><div class="page-shell">
+      <header class="community-hub-heading"><div><p class="section-kicker">Ruang partisipasi</p><h2>Tetap terhubung lewat praktik yang nyata.</h2></div><p>Contoh aktivitas yang direncanakan untuk komunitas HADANGIN.</p></header>
+      <div class="community-hub-card-grid">
+        <article><span>01 / ACARA</span><h3>Arena Komunitas</h3><p>Temukan sesi Gobak Sodor HADANGIN di sekolah, kampus, atau ruang publik dan daftar sebagai peserta atau fasilitator.</p><small>Sesi berkala &middot; Online dan offline</small></article>
+        <article><span>02 / REFLEKSI</span><h3>Catatan Fasilitator</h3><p>Pelajari bagaimana fasilitator lain menjalankan debrief, mengelola diskusi, dan menyesuaikan kasus untuk kelompoknya.</p><small>Bagikan metode, bukan data peserta</small></article>
+        <article><span>03 / KAMPANYE</span><h3>#JedaSebelumShare</h3><p>Ikuti latihan singkat untuk mengenali tekanan psikologis, memeriksa sumber, dan menjelaskan pilihan sebelum membagikan.</p><small>Tantangan J.E.D.A. untuk keseharian</small></article>
+      </div>
+    </div></section>
+    <section class="section community-hub-channels"><div class="page-shell community-hub-channel-grid"><div><p class="section-kicker">Kanal komunitas</p><h2>Ikuti perkembangan HADANGIN.</h2><p>Akun resmi dan pendaftaran komunitas akan ditambahkan setelah kanal moderasi dan perlindungan peserta siap.</p></div><div class="community-channel-list" aria-label="Kanal komunitas yang direncanakan"><span><b>IG</b>Instagram<small>Konten literasi &amp; agenda</small></span><span><b>DC</b>Ruang Diskusi<small>Refleksi &amp; fasilitator</small></span><span><b>EV</b>Kalender Acara<small>Sesi komunitas terdekat</small></span></div><strong class="community-future-label">Fitur mendatang &middot; Belum menerima pendaftaran</strong></div></section>
+  </main>`;
 }
 
 function communityTutorial() {
@@ -2364,6 +2395,13 @@ document.addEventListener("click", (event) => {
   }
   if (target.dataset.scrollTo) {
     document.getElementById(target.dataset.scrollTo)?.scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+  if (target.dataset.communityView) {
+    communityState.view = target.dataset.communityView;
+    stopCommunityTimer();
+    suspendCommunityVision();
+    render({ preserveScroll: true });
     return;
   }
   if (target.dataset.communityAudience) {
