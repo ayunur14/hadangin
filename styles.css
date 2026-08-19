@@ -348,6 +348,23 @@ p { color: var(--secondary); }
 .about-logo-wordmark > div { display: grid; place-items: center; min-height: 100px; margin-bottom: 16px; padding: 16px; background: white; border: 1px solid #d7e1ed; }
 .about-logo-wordmark img { display: block; width: min(100%, 320px); height: 64px; object-fit: cover; object-position: center; }
 
+.about-embodied { background: #eaf2fb; border-bottom: 1px solid var(--border); }
+.about-embodied-head { display: grid; grid-template-columns: minmax(0, .9fr) minmax(340px, 1.1fr); gap: clamp(38px, 7vw, 90px); align-items: end; margin-bottom: 34px; }
+.about-embodied-head h2 { max-width: 670px; margin: 8px 0 0; font-size: clamp(1.9rem, 3.5vw, 3.1rem); line-height: 1.14; }
+.about-embodied-head > p { max-width: 650px; margin: 0; color: var(--secondary); font-size: .88rem; line-height: 1.75; }
+.about-embodied-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid #bdcde0; border-bottom: 1px solid #bdcde0; }
+.about-embodied-grid article { min-width: 0; padding: 25px 22px 28px; border-right: 1px solid #bdcde0; }
+.about-embodied-grid article:first-child { padding-left: 0; }
+.about-embodied-grid article:last-child { padding-right: 0; border-right: 0; }
+.about-embodied-grid span { color: var(--terracotta-600); font-size: .58rem; font-weight: 900; }
+.about-embodied-grid article:nth-child(even) span { color: var(--teal-600); }
+.about-embodied-grid h3 { margin: 18px 0 9px; color: var(--ink); font-size: .9rem; line-height: 1.45; }
+.about-embodied-grid p { margin: 0; color: var(--secondary); font-size: .7rem; line-height: 1.65; }
+.about-embodied-outcome { display: grid; grid-template-columns: minmax(220px, .65fr) minmax(320px, 1fr) minmax(240px, .75fr); gap: 28px; align-items: start; margin-top: 32px; padding: 22px 24px; background: white; border-left: 4px solid var(--blue-600); }
+.about-embodied-outcome strong { color: var(--ink); font-size: .92rem; line-height: 1.5; }
+.about-embodied-outcome p { margin: 0; color: var(--text); font-size: .74rem; line-height: 1.65; }
+.about-embodied-outcome small { color: #5e7189; font-size: .61rem; line-height: 1.6; }
+
 .about-visual-language { background: #f3f7fb; border-bottom: 1px solid var(--border); }
 .about-visual-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .6fr); gap: 40px; align-items: end; margin-bottom: 32px; padding-bottom: 22px; border-bottom: 1px solid #cbd8e7; }
 .about-visual-head h2 { max-width: 700px; margin: 0; font-size: clamp(1.8rem, 3.4vw, 3rem); }
@@ -1500,6 +1517,14 @@ html[lang="en"] .vision-court::before { content: "ENTRY"; }
   .about-hero { min-height: 520px; }
   .about-hero-mark { right: 2vw; width: 280px; opacity: .11; }
   .about-identity-grid, .about-vision-mission { grid-template-columns: 1fr; }
+  .about-embodied-head { grid-template-columns: 1fr; gap: 16px; }
+  .about-embodied-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .about-embodied-grid article:nth-child(2) { border-right: 0; }
+  .about-embodied-grid article:nth-child(-n+2) { border-bottom: 1px solid #bdcde0; }
+  .about-embodied-grid article:first-child { padding-left: 22px; }
+  .about-embodied-grid article:last-child { padding-right: 22px; }
+  .about-embodied-outcome { grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr); }
+  .about-embodied-outcome small { grid-column: 1 / -1; }
   .about-visual-grid { grid-template-columns: 1fr; }
   .about-brand-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; }
   .how-modes-head, .how-mode-grid { grid-template-columns: 1fr; }
@@ -1581,6 +1606,13 @@ html[lang="en"] .vision-court::before { content: "ENTRY"; }
   .about-logo-mark > img { width: 90px; height: 112px; }
   .about-logo-wordmark > div { min-height: 82px; padding: 11px; }
   .about-logo-wordmark img { height: 50px; }
+  .about-embodied-head h2 { font-size: 2rem; }
+  .about-embodied-grid { grid-template-columns: 1fr; }
+  .about-embodied-grid article { padding: 22px 0; border-right: 0; border-bottom: 1px solid #bdcde0; }
+  .about-embodied-grid article:first-child { padding-left: 0; }
+  .about-embodied-grid article:last-child { padding-right: 0; border-bottom: 0; }
+  .about-embodied-outcome { grid-template-columns: 1fr; gap: 12px; padding: 20px; }
+  .about-embodied-outcome small { grid-column: auto; }
   .about-visual-head { grid-template-columns: 1fr; gap: 14px; }
   .about-brand-specs { grid-template-columns: 1fr; }
   .about-court-figure figcaption, .about-type-spec, .about-color-spec { padding: 20px; }
