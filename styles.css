@@ -513,20 +513,39 @@ input[type="range"] { width: 100%; height: 5px; accent-color: var(--blue-600); }
 @keyframes catchGuard { 45% { transform: scale(1.25) rotate(-6deg); } }
 .info-runner { position: absolute; z-index: 7; top: 58%; left: var(--token-left); display: grid; justify-items: center; color: white; transform: translate(-50%, -50%); transition: left .65s cubic-bezier(.2, .8, .2, 1); }
 .arena-stage .info-runner { animation: runnerArrive .6s cubic-bezier(.2, .8, .2, 1) both; }
-.runner-card { width: 54px; height: 42px; display: grid; align-content: center; gap: 4px; padding: 9px; background: var(--red-600); border: 3px solid #ffd8dc; border-radius: 7px; box-shadow: 0 0 0 7px rgba(200, 60, 74, .18), 0 9px 18px rgba(15, 23, 42, .34); transform: rotate(-4deg); }
+.runner-avatar { --runner-scale: 1; position: relative; width: 70px; height: 82px; display: block; filter: drop-shadow(0 8px 7px rgba(7,14,29,.32)); transform: scale(var(--runner-scale)); transform-origin: center bottom; }
+.runner-person { position: absolute; inset: 0; display: block; }
+.runner-head { position: absolute; z-index: 1; top: 1px; left: 50%; width: 22px; height: 24px; background: #c9855f; border: 3px solid #18233a; border-radius: 50% 50% 46% 46%; transform: translateX(-50%); }
+.runner-head::before { content: ""; position: absolute; top: -4px; left: -2px; width: 20px; height: 10px; background: #18233a; border-radius: 60% 60% 25% 25%; transform: rotate(-5deg); }
+.runner-body { position: absolute; z-index: 0; top: 21px; left: 50%; width: 31px; height: 36px; background: var(--blue-600); border: 3px solid #d7e9ff; border-radius: 11px 11px 7px 7px; transform: translateX(-50%); }
+.runner-arm { position: absolute; z-index: 2; top: 29px; width: 9px; height: 31px; background: #c9855f; border: 2px solid #18233a; border-radius: 9px; transform-origin: 50% 4px; }
+.runner-arm.left { left: 15px; transform: rotate(42deg); }
+.runner-arm.right { right: 15px; transform: rotate(-42deg); }
+.runner-leg { position: absolute; z-index: -1; top: 53px; width: 11px; height: 28px; background: #172033; border: 2px solid #d7e9ff; border-radius: 4px 4px 8px 8px; transform-origin: 50% 2px; }
+.runner-leg.left { left: 24px; transform: rotate(9deg); }
+.runner-leg.right { right: 24px; transform: rotate(-9deg); }
+.runner-card { position: absolute; z-index: 4; top: 29px; left: 50%; width: 46px; height: 35px; display: grid; align-content: center; gap: 3px; padding: 8px; background: var(--red-600); border: 3px solid #ffd8dc; border-radius: 7px; box-shadow: 0 0 0 6px rgba(200, 60, 74, .18), 0 7px 14px rgba(15, 23, 42, .3); transform: translateX(-50%) rotate(-4deg); }
 .runner-card i { display: block; height: 2px; background: rgba(255, 255, 255, .9); border-radius: 4px; }
 .runner-card i:nth-child(2) { width: 72%; }
 .runner-card i:nth-child(3) { width: 50%; }
 .info-runner strong { margin-top: 8px; padding: 3px 7px; background: var(--red-600); border-radius: 4px; font-size: .55rem; letter-spacing: .5px; }
 .info-runner small { margin-top: 2px; padding: 2px 5px; color: #fee2e2; background: rgba(11, 19, 38, .78); border-radius: 3px; font-size: .47rem; }
 .info-runner.is-running { animation: runnerMove 2.4s ease-in-out infinite; }
+.info-runner.is-running .runner-leg.left, .info-runner.game-token .runner-leg.left { animation: runnerLegLeft .38s ease-in-out infinite alternate; }
+.info-runner.is-running .runner-leg.right, .info-runner.game-token .runner-leg.right { animation: runnerLegRight .38s ease-in-out infinite alternate; }
+.info-runner.is-running .runner-arm.left, .info-runner.game-token .runner-arm.left { animation: runnerArmLeft .38s ease-in-out infinite alternate; }
+.info-runner.is-running .runner-arm.right, .info-runner.game-token .runner-arm.right { animation: runnerArmRight .38s ease-in-out infinite alternate; }
 .info-runner.game-token { transition: none; will-change: top, left, transform; }
-.info-runner.game-token .runner-card { animation: tokenBob .75s ease-in-out infinite alternate; }
+.info-runner.game-token .runner-avatar { animation: tokenBob .75s ease-in-out infinite alternate; }
 .info-runner.game-token.caught { animation: tokenCaught .5s ease forwards; }
 .info-runner.game-token.escaped { animation: tokenEscape .48s ease-in forwards; }
 @keyframes runnerArrive { from { opacity: .55; transform: translate(calc(-50% - 34px), -50%); } to { opacity: 1; transform: translate(-50%, -50%); } }
 @keyframes runnerMove { 0%, 100% { transform: translate(-50%, -50%); } 50% { transform: translate(calc(-50% + 24px), -50%); } }
-@keyframes tokenBob { to { transform: translateY(-5px) rotate(4deg); } }
+@keyframes runnerLegLeft { from { transform: rotate(18deg); } to { transform: rotate(-14deg); } }
+@keyframes runnerLegRight { from { transform: rotate(-18deg); } to { transform: rotate(14deg); } }
+@keyframes runnerArmLeft { from { transform: rotate(48deg); } to { transform: rotate(34deg); } }
+@keyframes runnerArmRight { from { transform: rotate(-48deg); } to { transform: rotate(-34deg); } }
+@keyframes tokenBob { from { transform: translateY(0) rotate(-1deg) scale(var(--runner-scale)); } to { transform: translateY(-5px) rotate(4deg) scale(var(--runner-scale)); } }
 @keyframes tokenCaught { 55% { filter: brightness(1.6); transform: translate(-50%, -50%) scale(1.35); } to { opacity: 0; transform: translate(-50%, -50%) scale(.3); } }
 @keyframes tokenEscape { to { opacity: 0; transform: translate(70px, -50%) rotate(15deg); } }
 .action-gate { position: absolute; z-index: 5; right: 1.8%; top: 48%; max-width: 92px; padding: 9px 8px; color: white; background: rgba(11, 19, 38, .88); border: 2px solid rgba(255, 255, 255, .7); border-right: 4px solid var(--red-600); border-radius: 5px; text-align: right; box-shadow: 0 7px 17px rgba(11, 19, 38, .25); transform: translate3d(var(--ui-x), var(--ui-y), 42px); transition: transform .14s ease-out; }
@@ -1675,7 +1694,7 @@ html[lang="en"] .vision-court::before { content: "ENTRY"; }
   .guard-marker i { top: -4px; right: -7px; width: 15px; height: 15px; border-width: 1px; font-size: .42rem; }
   .checkpoint-line { top: 18%; bottom: 14%; width: 2px; }
   .checkpoint-line.active, .checkpoint-line.done { width: 3px; }
-  .runner-card { width: 35px; height: 28px; gap: 2px; padding: 6px; border-width: 2px; box-shadow: 0 0 0 4px rgba(200, 60, 74, .17), 0 5px 10px rgba(15, 23, 42, .28); }
+  .runner-avatar { --runner-scale: .74; margin: -20px -9px -3px; }
   .info-runner strong { margin-top: 4px; padding: 2px 4px; font-size: .41rem; }
   .info-runner small { display: none; }
   .action-gate { right: .8%; top: 47%; max-width: 54px; padding: 5px 4px; border-width: 1px; border-right-width: 3px; }
