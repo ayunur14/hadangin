@@ -421,6 +421,272 @@ function adaptiveSignals() {
   });
 }
 
+const jedaTextAxes = [
+  {
+    letter: "J",
+    name: "Jeda",
+    tone: "amber",
+    prompt: "Berhenti: adakah tekanan untuk segera bereaksi?",
+    empty: "Tidak ada tekanan waktu yang kuat ditemukan dalam teks.",
+    detail: (tokens) => `Frasa ${tokens.map((token) => `“${token}”`).join(", ")} mempersempit waktu untuk berpikir.`,
+    rules: [
+      { pattern: /\b(sekarang|segera|cepat|hari ini|malam ini|30 menit|urgent|now|immediately|today)\b/gi, weight: 22 },
+      { pattern: /\b(terbatas|slot terakhir|kesempatan terakhir|hanya hari ini|sebelum dihapus|limited|last chance)\b/gi, weight: 18 },
+      { pattern: /\b(jangan telepon|jangan tanya|jangan cek|jangan bilang|rahasia|do not call|keep this secret)\b/gi, weight: 20 },
+    ],
+  },
+  {
+    letter: "E",
+    name: "Emosi",
+    tone: "red",
+    prompt: "Kenali: emosi apa yang sedang dipicu?",
+    empty: "Tidak ada pemicu emosi yang kuat ditemukan dalam teks.",
+    detail: (tokens) => `Kata ${tokens.map((token) => `“${token}”`).join(", ")} dapat memicu respons emosional.`,
+    rules: [
+      { pattern: /\b(kecelakaan|darurat|diblokir|blokir|ancaman|takut|panik|bahaya|emergency|fear|danger)\b/gi, weight: 22 },
+      { pattern: /\b(mama|ayah|ibu|bapak|keluarga|anak|saudara)\b/gi, weight: 13 },
+      { pattern: /\b(selamat|lolos|hadiah|menang|gratis|peluang|gaji tinggi|prize|winner|free)\b/gi, weight: 17 },
+      { pattern: /\b(mereka menutupi|fakta ini|memalukan|marah|viral)\b/gi, weight: 16 },
+    ],
+  },
+  {
+    letter: "D",
+    name: "Data",
+    tone: "blue",
+    prompt: "Periksa: bukti atau identitas apa yang belum pasti?",
+    empty: "Teks tidak menyertakan identitas atau bukti yang dapat diperiksa langsung.",
+    detail: (tokens) => `Klaim atau data ${tokens.map((token) => `“${token}”`).join(", ")} perlu dicocokkan dengan sumber independen.`,
+    rules: [
+      { pattern: /\b(mama|ayah|ibu|bapak|keluarga|bank|polisi|admin|hrd|perusahaan|kasir|tokoh publik|customer service)\b/gi, weight: 18 },
+      { pattern: /\b(resmi|asli|terverifikasi|fakta|bukti|official|verified)\b/gi, weight: 15 },
+      { pattern: /\b(rekening|nomor baru|tautan|domain|qr|qris|otp|pin|password|kata sandi|kode keamanan)\b/gi, weight: 20 },
+    ],
+  },
+  {
+    letter: "A",
+    name: "Aksi",
+    tone: "teal",
+    prompt: "Nilai: apa risiko dari tindakan yang diminta?",
+    empty: "Tidak ada permintaan tindakan langsung yang kuat ditemukan dalam teks.",
+    detail: (tokens) => `Permintaan tindakan yang terbaca: ${tokens.map((token) => `“${token}”`).join(", ")}. Periksa risikonya sebelum dilakukan.`,
+    rules: [
+      { pattern: /\b(transfer|bayar|membayar|pembayaran|deposit|investasi|kirim uang|scan|pindai)\b/gi, weight: 24 },
+      { pattern: /\b(klik|buka|unduh|download|login|verifikasi|masukkan|kirim data|berikan otp)\b/gi, weight: 21 },
+      { pattern: /\b(sebarkan|bagikan|share|forward|teruskan)\b/gi, weight: 20 },
+      { pattern: /\brp\s?\d+(?:[.,]\d+)?(?:\s?(?:ribu|juta|miliar))?\b/gi, weight: 17 },
+    ],
+  },
+];
+
+function analyzeJedaText(profile, source = adaptiveSourceText() || currentScenario()?.content || "", evidenceLabel = "TEKS TERDETEKSI") {
+  return jedaTextAxes.map((axis) => {
+    const tokens = [];
+    let weight = 0;
+    axis.rules.forEach((rule) => {
+      const matches = source.match(rule.pattern) || [];
+      const uniqueMatches = matches.filter((match, index, list) => {
+        const normalized = match.toLocaleLowerCase("id");
+        return list.findIndex((item) => item.toLocaleLowerCase("id") === normalized) === index
+          && !tokens.some((token) => token.toLocaleLowerCase("id") === normalized);
+      });
+      if (!uniqueMatches.length) return;
+      weight += rule.weight + Math.max(0, uniqueMatches.length - 1) * 7;
+      tokens.push(...uniqueMatches);
+    });
+    const visibleTokens = tokens.slice(0, 3);
+    const score = visibleTokens.length
+      ? clampNumber(38 + weight + visibleTokens.length * 5 + Math.round(profile.aiScore * .1), 48, 98)
+      : clampNumber(18 + Math.round(profile.aiScore * .08), 18, 30);
+    return {
+      ...axis,
+      tokens: visibleTokens,
+      finding: visibleTokens.length ? axis.detail(visibleTokens) : axis.empty,
+      score,
+      evidenceLabel,
+    };
+  });
+}
+
+const scenarioJedaSignals = {
+  "family-emergency": {
+    evidenceLabel: "TEKS PESAN",
+    inputLabel: "Teks / pesan keluarga",
+    signals: {
+      J: { tokens: ["sekarang", "tolong cepat"], finding: "Tekanan waktu mendorong penerima bereaksi sebelum sempat mengonfirmasi keadaan.", score: 92 },
+      E: { tokens: ["Mama", "kecelakaan"], finding: "Kedekatan keluarga dan keadaan darurat dapat memicu takut, panik, dan rasa bersalah.", score: 90 },
+      D: { tokens: ["Mama", "rekening ini"], finding: "Identitas pengirim dan pemilik rekening belum dibuktikan melalui kanal keluarga yang tersimpan.", score: 88 },
+      A: { tokens: ["Transfer Rp3 juta"], finding: "Transfer uang adalah tindakan finansial yang sulit dibatalkan setelah dikirim.", score: 96 },
+    },
+  },
+  "qr-payment": {
+    evidenceLabel: "VISUAL QR + KONTEKS",
+    inputLabel: "Gambar QR pembayaran",
+    signals: {
+      J: { tokens: ["QR baru", "langsung diproses"], finding: "Pergantian QR dan dorongan menyelesaikan pembayaran mengurangi waktu untuk mengecek penerima.", score: 79 },
+      E: { tokens: ["meja kasir", "tampilan merchant"], finding: "Lokasi yang familiar dapat memicu rasa percaya dan kebiasaan memindai tanpa memeriksa.", score: 68 },
+      D: { tokens: ["stiker baru", "penerima belum terlihat"], finding: "Lapisan QR dan identitas penerima perlu dikonfirmasi langsung kepada kasir.", score: 91 },
+      A: { tokens: ["scan", "pembayaran"], finding: "Memindai lalu membayar dapat mengirim dana ke tujuan yang salah.", score: 89 },
+    },
+  },
+  "job-offer": {
+    evidenceLabel: "SCREENSHOT + TEKS",
+    inputLabel: "Poster lowongan kerja",
+    signals: {
+      J: { tokens: ["hari ini", "mengamankan posisi"], finding: "Batas waktu sempit dan ancaman kehilangan posisi menciptakan kelangkaan buatan.", score: 88 },
+      E: { tokens: ["Selamat", "lolos seleksi"], finding: "Harapan mendapat pekerjaan dapat menurunkan kewaspadaan terhadap permintaan berikutnya.", score: 82 },
+      D: { tokens: ["poster grup", "perusahaan"], finding: "Logo atau poster profesional bukan bukti hubungan pengirim dengan perusahaan; kanal HR resmi tetap perlu dicek.", score: 90 },
+      A: { tokens: ["Transfer", "biaya administrasi"], finding: "Biaya rekrutmen di muka adalah tindakan finansial berisiko sebelum posisi terverifikasi.", score: 96 },
+    },
+  },
+  "bank-message": {
+    evidenceLabel: "TEKS + STRUKTUR TAUTAN",
+    inputLabel: "SMS dan tautan bank",
+    signals: {
+      J: { tokens: ["30 menit"], finding: "Batas 30 menit mempersempit kesempatan membuka aplikasi bank atau menghubungi kanal resmi.", score: 94 },
+      E: { tokens: ["rekening diblokir"], finding: "Ancaman kehilangan akses rekening memicu takut dan kepanikan.", score: 92 },
+      D: { tokens: ["mengatasnamakan bank", "secure-verifikasi-akun.example"], finding: "Nama domain dan identitas pengirim perlu dibandingkan dengan domain resmi bank.", score: 95 },
+      A: { tokens: ["klik tautan", "verifikasi identitas"], finding: "Membuka tautan dan memasukkan identitas dapat mengekspos kredensial atau OTP.", score: 97 },
+    },
+  },
+  "viral-info": {
+    evidenceLabel: "SCREENSHOT + TEKS",
+    inputLabel: "Unggahan viral",
+    signals: {
+      J: { tokens: ["sekarang", "sebelum dihapus"], finding: "Desakan membagikan sebelum konten hilang menghambat pemeriksaan sumber dan tanggal.", score: 90 },
+      E: { tokens: ["mereka tidak ingin kamu tahu", "menutupi fakta"], finding: "Framing konspiratif memicu curiga, marah, dan dorongan membela kelompok.", score: 86 },
+      D: { tokens: ["fakta ini", "tanpa sumber primer"], finding: "Klaim tidak menyertakan sumber primer, tanggal, lokasi, atau konteks yang dapat diverifikasi.", score: 92 },
+      A: { tokens: ["Sebarkan"], finding: "Membagikan ulang dapat memperluas misinformasi dan merugikan pihak lain.", score: 89 },
+    },
+  },
+  "manipulated-media": {
+    evidenceLabel: "FRAME VIDEO + AUDIO",
+    inputLabel: "Video tokoh publik",
+    signals: {
+      J: { tokens: ["hanya hari ini"], finding: "Batas waktu investasi mendorong keputusan sebelum sumber video dan produk diperiksa.", score: 86 },
+      E: { tokens: ["tokoh publik", "video eksklusif"], finding: "Otoritas tokoh dan kesan eksklusif dapat meminjam kepercayaan penonton.", score: 80 },
+      D: { tokens: ["sinkronisasi wajah", "sumber akun"], finding: "Gerak wajah, pola audio, dan asal unggahan perlu dibandingkan dengan kanal resmi serta video asli.", score: 91 },
+      A: { tokens: ["investasi"], finding: "Ajakan investasi berisiko menimbulkan kerugian jika legalitas dan tujuan dana belum diperiksa.", score: 93 },
+    },
+  },
+  "ai-can-be-wrong": {
+    evidenceLabel: "BUKTI KANAL RESMI",
+    inputLabel: "Notifikasi dalam aplikasi",
+    signals: {
+      J: { tokens: ["jadwal layanan berubah"], finding: "Tidak ada tekanan waktu atau ancaman tindakan segera yang kuat pada pemberitahuan ini.", score: 24 },
+      E: { tokens: ["bahasa formal"], finding: "Format formal dapat terasa meyakinkan, tetapi tidak memicu emosi berisiko yang kuat.", score: 29 },
+      D: { tokens: ["pemberitahuan resmi", "aplikasi resmi"], finding: "Bukti berada pada kanal resmi dan dapat mengoreksi prediksi AI yang terlalu mencurigai format pesan.", score: 22 },
+      A: { tokens: ["periksa pembaruan"], finding: "Tindakan yang diminta adalah memeriksa kanal resmi, bukan transfer, login, atau membagikan data.", score: 26 },
+    },
+  },
+  "audio-impersonation": {
+    evidenceLabel: "TRANSKRIP + POLA AUDIO",
+    inputLabel: "Voice note 18 detik",
+    signals: {
+      J: { tokens: ["sekarang", "jangan telepon dulu"], finding: "Desakan transfer dan larangan menelepon sengaja mempersempit ruang verifikasi.", score: 94 },
+      E: { tokens: ["Mama", "keadaan darurat"], finding: "Kemiripan suara keluarga dan situasi darurat dapat memicu panik serta rasa wajib menolong.", score: 91 },
+      D: { tokens: ["pola prosodi", "jejak kompresi"], finding: "Pola audio dapat menjadi petunjuk, tetapi kemiripan suara tidak membuktikan identitas pembicara.", score: 87 },
+      A: { tokens: ["transfer"], finding: "Permintaan transfer perlu ditahan sampai identitas dikonfirmasi melalui nomor keluarga yang tersimpan.", score: 95 },
+    },
+  },
+};
+
+function curatedScenarioJedaAnalysis(scenarioId) {
+  const config = scenarioJedaSignals[scenarioId];
+  if (!config) return null;
+  return {
+    inputLabel: config.inputLabel,
+    signals: jedaTextAxes.map((axis) => ({
+      ...axis,
+      ...config.signals[axis.letter],
+      evidenceLabel: config.evidenceLabel,
+    })),
+  };
+}
+
+function mergeJedaTokens(current = [], additions = []) {
+  return [...current, ...additions].filter((token, index, list) => {
+    const normalized = String(token).toLocaleLowerCase("id");
+    return list.findIndex((item) => String(item).toLocaleLowerCase("id") === normalized) === index;
+  }).slice(0, 3);
+}
+
+function updateJedaAxis(signals, letter, patch) {
+  return signals.map((signal) => signal.letter === letter ? { ...signal, ...patch } : signal);
+}
+
+function explainJedaByModality(profile, detection) {
+  if (state.trainingScenario) {
+    const curated = curatedScenarioJedaAnalysis(state.scenarioId);
+    if (curated) return curated;
+  }
+
+  if (state.inputType === "text") {
+    return { inputLabel: "Teks / pesan", signals: analyzeJedaText(profile) };
+  }
+
+  if (state.inputType === "audio") {
+    const transcript = [state.mediaContext, detection.transcript, state.content].filter(Boolean).join(" ");
+    let signals = analyzeJedaText(profile, transcript, "TRANSKRIP SIMULASI + AUDIO");
+    const duration = Number.isFinite(state.fileMeta?.duration) ? `${Math.round(state.fileMeta.duration)} detik` : "durasi belum terbaca";
+    const dataSignal = signals.find((signal) => signal.letter === "D");
+    signals = updateJedaAxis(signals, "D", {
+      tokens: mergeJedaTokens(dataSignal?.tokens, [duration, "pola suara"]),
+      finding: "Durasi dan pola suara dapat dipetakan, tetapi identitas pembicara tetap harus dikonfirmasi melalui kanal lain.",
+      score: Math.max(dataSignal?.score || 0, 62),
+    });
+    const audioLimits = {
+      J: "Tidak ada tekanan waktu yang kuat ditemukan pada transkrip simulasi.",
+      E: "Tidak ada pemicu emosi yang kuat ditemukan pada transkrip simulasi.",
+      A: "Tidak ada permintaan tindakan langsung yang kuat ditemukan pada transkrip simulasi.",
+    };
+    signals = signals.map((signal) => signal.tokens.length || signal.letter === "D" ? signal : { ...signal, finding: audioLimits[signal.letter] || signal.finding });
+    return { inputLabel: state.fileName || "Rekaman audio", signals };
+  }
+
+  if (state.inputType === "qr" && state.qrInputMode === "link") {
+    const hostname = safeHostname(state.content);
+    let signals = analyzeJedaText(profile, [state.content, state.mediaContext].filter(Boolean).join(" "), "STRUKTUR TAUTAN");
+    const dataSignal = signals.find((signal) => signal.letter === "D");
+    signals = updateJedaAxis(signals, "D", {
+      tokens: mergeJedaTokens(dataSignal?.tokens, [hostname, state.content.startsWith("https://") ? "HTTPS" : "HTTP"]),
+      finding: `Host “${hostname}” terbaca dari alamat, tetapi HTTPS tidak membuktikan pemilik atau keamanan tujuan.`,
+      score: Math.max(dataSignal?.score || 0, 74),
+    });
+    const linkLimits = {
+      J: "Tidak ada penanda tekanan waktu yang kuat ditemukan pada struktur alamat.",
+      E: "Struktur alamat saja tidak cukup untuk menyimpulkan pemicu emosi dalam pesan pengantar.",
+      A: "Tidak ada instruksi tindakan yang kuat terbaca dari path atau parameter tautan.",
+    };
+    signals = signals.map((signal) => signal.tokens.length || signal.letter === "D" ? signal : { ...signal, finding: linkLimits[signal.letter] || signal.finding });
+    return { inputLabel: hostname, signals };
+  }
+
+  const isQrImage = state.inputType === "qr" && state.qrInputMode === "image";
+  const evidenceLabel = isQrImage ? "VISUAL QR + KONTEKS" : "VISUAL + KONTEKS INPUT";
+  const context = [state.mediaContext, state.content].filter(Boolean).join(" ");
+  let signals = analyzeJedaText(profile, context, evidenceLabel);
+  const meta = state.fileMeta || {};
+  const visualTokens = [
+    meta.width ? `${meta.width} × ${meta.height} px` : state.fileName || (isQrImage ? "gambar QR" : "gambar"),
+    `${meta.hotspots?.length || 0} area kontras`,
+  ];
+  const dataSignal = signals.find((signal) => signal.letter === "D");
+  signals = updateJedaAxis(signals, "D", {
+    tokens: mergeJedaTokens(dataSignal?.tokens, visualTokens),
+    finding: isQrImage
+      ? "Struktur visual QR dapat dipetakan, tetapi nama penerima dan pemilik tujuan tetap perlu dikonfirmasi sebelum memindai."
+      : "Metadata dan area visual dapat dipetakan, tetapi isi, sumber, dan keaslian gambar memerlukan OCR atau pemeriksaan independen.",
+    score: Math.max(dataSignal?.score || 0, isQrImage ? 70 : 58),
+  });
+  const modalityLimits = {
+    J: "Tekanan waktu tidak dapat disimpulkan dari piksel saja; periksa teks pada gambar atau tambahkan konteks.",
+    E: "Pemicu emosi tidak dapat dipastikan dari tampilan visual saja tanpa membaca isi dan konteksnya.",
+    A: "Tindakan yang diminta perlu dibaca dari teks atau konteks gambar sebelum risikonya dinilai.",
+  };
+  signals = signals.map((signal) => signal.tokens.length || signal.letter === "D" ? signal : { ...signal, finding: modalityLimits[signal.letter] || signal.finding });
+  return { inputLabel: state.fileName || (isQrImage ? "Gambar QR" : "Gambar / screenshot"), signals };
+}
+
 function inferAnalysisPreset() {
   if (state.trainingScenario) return state.scenarioId;
   const source = adaptiveSourceText().toLowerCase();
@@ -676,6 +942,24 @@ const ENGLISH_PHRASES = new Map([
   ["Form kredensial", "Credential form"], ["Tujuan terbaca / simulasi", "Detected destination / simulation"],
   ["Host terbaca", "Detected host"], ["Pola terdeteksi", "Detected pattern"], ["Status", "Status"],
   ["Perlu verifikasi", "Needs verification"], ["Ganti Konten", "Change Content"], ["Hasil prediksi langsung", "Instant prediction result"],
+  ["VISUAL J.E.D.A.", "J.E.D.A. VISUAL"], ["Empat checkpoint sebelum tindakan", "Four checkpoints before action"],
+  ["Setiap garis memberi ruang untuk berhenti, membaca sinyal, lalu menentukan apa yang perlu diperiksa.", "Each line creates space to pause, read the signal, and decide what needs checking."],
+  ["Informasi masuk", "Incoming information"], ["Verifikasi dulu", "Verify first"], ["Periksa dulu", "Check first"], ["Tingkat sinyal", "Signal level"],
+  ["TEKS TERDETEKSI", "DETECTED TEXT"], ["Tidak ditemukan", "Not found"],
+  ["TEKS PESAN", "MESSAGE TEXT"], ["VISUAL QR + KONTEKS", "QR VISUAL + CONTEXT"], ["SCREENSHOT + TEKS", "SCREENSHOT + TEXT"],
+  ["TEKS + STRUKTUR TAUTAN", "TEXT + LINK STRUCTURE"], ["FRAME VIDEO + AUDIO", "VIDEO FRAME + AUDIO"],
+  ["BUKTI KANAL RESMI", "OFFICIAL CHANNEL EVIDENCE"], ["TRANSKRIP + POLA AUDIO", "TRANSCRIPT + AUDIO PATTERN"],
+  ["TRANSKRIP SIMULASI + AUDIO", "SIMULATED TRANSCRIPT + AUDIO"], ["STRUKTUR TAUTAN", "LINK STRUCTURE"],
+  ["VISUAL + KONTEKS INPUT", "VISUAL + INPUT CONTEXT"], ["SINYAL INPUT", "INPUT SIGNAL"], ["Utamakan bukti", "Prioritize evidence"],
+  ["Setiap garis menghubungkan bukti dari modalitas input dengan jeda, emosi, data, dan risiko tindakan yang perlu diperiksa.", "Each line connects evidence from the input modality to pause, emotion, data, and action risks that need checking."],
+  ["Tidak ada tekanan waktu yang kuat ditemukan dalam teks.", "No strong time pressure was found in the text."],
+  ["Tidak ada pemicu emosi yang kuat ditemukan dalam teks.", "No strong emotional trigger was found in the text."],
+  ["Teks tidak menyertakan identitas atau bukti yang dapat diperiksa langsung.", "The text does not include an identity or evidence that can be checked directly."],
+  ["Tidak ada permintaan tindakan langsung yang kuat ditemukan dalam teks.", "No strong direct call to action was found in the text."],
+  ["Berhenti: adakah tekanan untuk segera bereaksi?", "Pause: is there pressure to react immediately?"],
+  ["Kenali: emosi apa yang sedang dipicu?", "Recognize: what emotion is being triggered?"],
+  ["Periksa: bukti atau identitas apa yang belum pasti?", "Check: what evidence or identity is still uncertain?"],
+  ["Nilai: apa risiko dari tindakan yang diminta?", "Assess: what is the risk of the requested action?"],
   ["Keputusan akhir", "Final decision"], ["Keputusan final", "Final decision"], ["Lanjut Latihan", "Continue Training"],
   ["Periksa Lagi", "Check Again"], ["Tentang Inisiatif", "About the Initiative"], ["Untuk siapa", "Who It Is For"],
   ["Pilih Skenario", "Choose a Scenario"], ["Mulai Latihan", "Start Training"], ["Pilih penjaga di arena", "Choose a guard in the arena"],
@@ -1671,20 +1955,29 @@ function detectionPreviewContent(detection, previewText) {
   return `<div class="message-preview"><p>${escapeHtml(previewText)}</p></div>`;
 }
 
+function jedaXaiBoard(profile, detection) {
+  const analysis = explainJedaByModality(profile, detection);
+  const contextTitle = state.trainingScenario ? currentScenario().title : analysis.inputLabel;
+  const evidenceLabel = analysis.signals[0]?.evidenceLabel || "SINYAL INPUT";
+  const shouldHold = !state.aiWrong && profile.aiScore >= 80;
+  return `<section class="ai-court-board" aria-label="Papan penjelasan XAI J.E.D.A. untuk ${escapeHtml(contextTitle)}">
+    <header class="court-board-header"><div><span>XAI J.E.D.A. &middot; ${escapeHtml(evidenceLabel)}</span><strong>Pemetaan J.E.D.A. &middot; ${escapeHtml(contextTitle)}</strong></div><p>Setiap garis menghubungkan bukti dari modalitas input dengan jeda, emosi, data, dan risiko tindakan yang perlu diperiksa.</p></header>
+    <div class="court-flow">
+      <div class="court-entry"><i aria-hidden="true"></i><span>INPUT</span><small>${escapeHtml(analysis.inputLabel)}</small></div>
+      <div class="court-track">${analysis.signals.map(({ letter, name, finding, tokens, score, tone, prompt, evidenceLabel: signalLabel }, index) => `<article class="court-signal ${tone}"><div class="court-line" aria-hidden="true"></div><div class="court-signal-card"><header><span class="court-letter">${letter}</span><div><small>GARIS 0${index + 1}</small><strong>${name}</strong></div></header><p class="court-prompt">${prompt}</p><div class="court-text-evidence"><span>${escapeHtml(signalLabel || evidenceLabel)}</span><div>${tokens.length ? tokens.map((token) => `<mark>${escapeHtml(token)}</mark>`).join("") : `<em>Tidak ditemukan</em>`}</div></div><p class="court-detail">${escapeHtml(finding)}</p><div class="court-score"><span>Tingkat sinyal</span><b>${score}%</b><i style="--score:${score}%"></i></div></div></article>`).join("")}</div>
+      <div class="court-gate"><span>AKSI</span><strong>${shouldHold ? "TAHAN" : "CEK"}</strong><small>${shouldHold ? "Verifikasi dulu" : state.aiWrong ? "Utamakan bukti" : "Periksa dulu"}</small></div>
+    </div>
+  </section>`;
+}
+
 function directDetectionResult() {
   const profile = analysisProfile();
   const detection = analysisDetection();
-  const arenaSignals = [
-    ["J", "Jeda", profile.aiNotices[0]?.[1] || "Tekanan perlu diperiksa", Math.min(96, profile.aiScore + 6), "amber"],
-    ["E", "Emosi", profile.aiNotices[1]?.[1] || "Respons emosional terdeteksi", Math.max(42, profile.aiScore - 9), "red"],
-    ["D", "Data", profile.aiNotices[2]?.[1] || "Bukti belum terkonfirmasi", Math.max(48, profile.aiScore - 4), "blue"],
-    ["A", "Aksi", profile.aiNotices[3]?.[1] || "Tindakan berisiko terdeteksi", Math.min(98, profile.aiScore + 3), "teal"],
-  ];
   const verdict = profile.aiScore >= 80 ? "Risiko tinggi - verifikasi sebelum bertindak" : profile.aiScore >= 70 ? "Perlu verifikasi lebih lanjut" : "Sinyal sedang - periksa bukti resmi";
   return `<section class="direct-detection-page"><div class="page-shell">
     <div class="direct-result-topbar"><span>Mode Deteksi AI &middot; Explainable AI</span></div>
     <header class="direct-result-header"><div><p class="section-kicker">Hasil prediksi langsung</p><h1>AI menghadang empat sinyal sebelum tindakan.</h1><p>Hasil ini melewati latihan Human First dan game. Gunakan penjelasan XAI untuk menentukan apa yang masih perlu diverifikasi.</p></div><div class="direct-verdict"><span>${escapeHtml(detection.confidenceLabel)}</span><strong>${profile.aiScore}%</strong><p>${escapeHtml(verdict)}</p></div></header>
-    <section class="ai-court-board" aria-label="Papan sinyal J.E.D.A. hasil prediksi AI"><div class="court-entry"><span>INPUT</span><i></i></div><div class="court-track">${arenaSignals.map(([letter, name, detail, score, tone], index) => `<article class="court-signal ${tone}"><div class="court-line"></div><span class="court-letter">${letter}</span><div><small>GARIS 0${index + 1}</small><strong>${name}</strong><p>${escapeHtml(detail)}</p><div class="court-score"><i style="--score:${score}%"></i><b>${score}</b></div></div></article>`).join("")}</div><div class="court-gate"><span>AKSI</span><strong>${profile.aiScore >= 80 ? "TAHAN" : "CEK"}</strong></div></section>
+    ${jedaXaiBoard(profile, detection)}
     ${detectionPanel(profile, detection)}
     <div class="ai-notice-grid">${profile.aiNotices.map(([label, value]) => `<div class="signal-card"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div>`).join("")}</div>
     <div class="ai-columns direct-ai-columns"><section class="info-panel unknown"><h3>Yang belum dapat dipastikan AI</h3><ul>${profile.unknowns.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section><section class="info-panel verify"><h3>Langkah verifikasi berikutnya</h3><ul>${profile.verification.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section></div>
@@ -1697,6 +1990,7 @@ function aiLens() {
   const detection = analysisDetection();
   return `<div class="flow-card">
     <header class="ai-header"><span class="ai-scan-icon" aria-hidden="true"></span><div><p class="section-kicker">AI Second</p><h2>AI Lens</h2><p>Second opinion dengan visual clue, confidence score, dan pertanyaan reflektif - bukan keputusan akhir.</p></div></header>
+    ${jedaXaiBoard(profile, detection)}
     ${detectionPanel(profile, detection)}
     <div class="ai-notice-grid">${profile.aiNotices.map(([label, value]) => `<div class="signal-card"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div>`).join("")}</div>
     <div class="forensic-meter"><div class="forensic-meter-head"><strong>${state.aiWrong ? "Suspicious Signals" : "Manipulation Signals"}: ${profile.aiLevel}</strong><span>${profile.aiScore}% indikator model</span></div><div class="meter"><span style="width:${profile.aiScore}%"></span></div><p>Nilai ini menunjukkan sinyal model, bukan kebenaran final. Gunakan hasil ini untuk menentukan apa yang perlu dicek, bukan untuk langsung percaya.</p></div>
